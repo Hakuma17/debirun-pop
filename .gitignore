@@ -1,0 +1,4 @@
+﻿node_modules/
+scores.db
+.env
+*.log

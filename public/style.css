@@ -1,0 +1,153 @@
+/* --- Base Styles --- */
+:root {
+  --bg: #0b1130;
+  --card: #131b48;
+  --acc: #47a3ff;
+  --text: #e9f1ff;
+  --glow: 0 0 16px rgba(71, 163, 255, .55);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Orbitron", system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+  background: radial-gradient(1200px 700px at 20% -10%, #13205a 0%, var(--bg) 55%) fixed;
+  color: var(--text);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+/* --- Containers --- */
+.login-container,
+.game-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.login-container {
+  text-align: center;
+  padding-top: 8vh;
+}
+
+/* --- Typography & Form Elements --- */
+h1, h2 {
+  letter-spacing: .2em;
+  text-shadow: var(--glow);
+}
+
+input, button {
+  font: inherit;
+  border: none;
+  outline: 0;
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+
+input {
+  background: #0f1740;
+  color: var(--text);
+  width: 260px;
+  margin: 16px 0;
+}
+
+button {
+  background: linear-gradient(90deg, #2b70ff, #47a3ff);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: var(--glow);
+  transition: transform 0.1s;
+}
+button:active {
+    transform: scale(0.95);
+}
+
+
+/* --- Game Layout --- */
+.game-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.main-game {
+  flex-grow: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#debirunImage {
+  width: min(68vmin, 520px);
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+  transition: transform .06s ease;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+#debirunImage.active {
+  transform: scale(0.96);
+}
+
+/* --- Leaderboard --- */
+.leaderboard {
+  background: var(--card);
+  padding: 12px 16px;
+  border-radius: 14px;
+  box-shadow: var(--glow);
+  max-height: 25vh;
+  overflow-y: auto;
+}
+
+.leaderboard ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.leaderboard li {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, .06);
+}
+
+.leaderboard li:last-child {
+    border-bottom: none;
+}
+
+.leaderboard li.me {
+  color: #fff;
+  background: rgba(71, 163, 255, .12);
+  border-radius: 8px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+  .game-container {
+    gap: 16px;
+    padding: 16px;
+  }
+  .main-game {
+      min-height: 45vh;
+  }
+}

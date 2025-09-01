@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Debirun Pop — Space Police</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <meta name="theme-color" content="#0b1130">
+</head>
+<body>
+  <div class="login-container" id="loginContainer">
+    <h1>DEBIRUN POP</h1>
+    <p>ENTER YOUR AGENT NAME</p>
+    <input type="text" id="nameInput" placeholder="Your Name" maxlength="15" autocomplete="off" />
+    <button id="startButton">START MISSION</button>
+  </div>
+
+  <div class="game-container" id="gameContainer" style="display:none;">
+    <header class="game-header">
+      <div class="player-info">Agent: <span id="playerName"></span></div>
+      <div class="score">Your Score: <span id="score">0</span></div>
+    </header>
+
+    <main class="main-game">
+      <img
+        id="debirunImage"
+        src="พื้นหลังใส-1.png"
+        alt="Debirun"
+        draggable="false"
+        aria-label="Tap to score"
+      />
+    </main>
+
+    <aside class="leaderboard">
+      <h2>TOP AGENTS</h2>
+      <ul id="scoreboard"></ul>
+    </aside>
+  </div>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
