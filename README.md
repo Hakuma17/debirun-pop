@@ -1,21 +1,26 @@
-# Debirun Pop — Full‑stack (Express + SQLite)
 
-## Run locally
+# Debirun Pop — ฟูลสแต็ก (Express + SQLite)
+
+## รันบนเครื่อง (Local)
+
 ```bash
 npm i
 npm start
-# open http://localhost:3000
+# เปิด http://localhost:3000
 ```
 
-## Deploy (Render/Railway/Fly)
-- Create a new Web Service from this folder.
-- Start command: `node server.js`
-- The platform sets `PORT` automatically.
+## ดีพลอย (Render/Railway/Fly)
 
-If your front‑end and API are **separate domains**, add an env var on the server:
+* สร้าง **Web Service** ใหม่จากโฟลเดอร์นี้
+* Start command: `node server.js`
+* แพลตฟอร์มจะตั้งค่า `PORT` ให้โดยอัตโนมัติ
+
+หากหน้าเว็บ (front-end) และ API อยู่ **คนละโดเมน**, ให้เพิ่มตัวแปรสภาพแวดล้อมบนเซิร์ฟเวอร์:
+
 ```
 CORS_ORIGIN=https://your-frontend.example
 ```
-and load the page with `?api=https://your-api.example` (or set `window.API_URL` before `script.js`).
 
-Database is a local `scores.db` (SQLite). Backup is the file itself.
+แล้วโหลดหน้าเว็บด้วย `?api=https://your-api.example` (หรือกำหนด `window.API_URL` ก่อนโหลด `script.js`)
+
+ฐานข้อมูลใช้ไฟล์ **`scores.db`** (SQLite) ภายในเซิร์ฟเวอร์เอง การสำรองข้อมูลคือสำรองไฟล์นี้โดยตรง.
