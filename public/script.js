@@ -79,12 +79,12 @@ const config = {
   FLUSH_INTERVAL_MS: 1500,
 
   // เงื่อนไขสำหรับ Streak Bonus
-  STREAK_TARGET: 30,      // จำนวนคลิกที่ต้องการ
+  STREAK_TARGET: 75,      // จำนวนคลิกที่ต้องการ
   STREAK_RESET_MS: 1500,  // เวลาที่เว้นว่างก่อนรีเซ็ตสตรีค
 
   // เวลาสำหรับเสียง Idle (ตอนไม่กด)
   IDLE_FIRST_WAIT_MS: 5000,
-  IDLE_REPEAT_INTERVAL_MS: 10000,
+  IDLE_REPEAT_INTERVAL_MS: 15000,
 };
 
 // --- 3. AUDIO ASSETS ---
