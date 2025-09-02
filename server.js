@@ -1,10 +1,11 @@
 // ===================================================================
-// DEBIRUN POP - EXPRESS SERVER
-// Handles scoring, leaderboard, and community data.
-// Supports both Firestore and local SQLite databases.
+// DEBIRUN POP - EXPRESS SERVER (Final Version)
+// - รองรับการให้คะแนน, ตารางคะแนน, และคะแนนรวม
+// - เพิ่ม Endpoint สำหรับดึงข้อมูลผู้เล่นรายบุคคล
+// - รองรับฐานข้อมูล Firestore และ SQLite
 // ===================================================================
 
-// --- 1. INITIALIZATION ---
+// --- 1. INITIALIZATION (การนำเข้า library ที่จำเป็น) ---
 const express = require("express");
 const path = require("path");
 const compression = require("compression");
@@ -13,20 +14,23 @@ const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- 2. DATABASE ABSTRACTION LAYER ---
-// สร้างชั้น Abstraction เพื่อให้ส่วน API เรียกใช้งานได้เหมือนกัน
+// [เพิ่มใหม่] ถ้าอยู่หลัง Proxy (เช่น Render/Fly/Railway) จะได้ IP จริงของผู้ใช้
+app.set("trust proxy", true);
+
+// --- 2. DATABASE ABSTRACTION LAYER (การจัดการฐานข้อมูล) ---
+// สร้างชั้น Abstraction เพื่อให้โค้ดส่วนอื่นเรียกใช้งานฐานข้อมูลได้ในรูปแบบเดียวกัน
 // โดยไม่ต้องสนใจว่าเบื้องหลังเป็น Firestore หรือ SQLite
 let dbService;
 
 /**
- * Initializes the database service based on environment variables.
- * @returns {object} A database service object with standardized methods.
+ * ฟังก์ชันสำหรับเริ่มต้นการเชื่อมต่อฐานข้อมูลตาม Environment Variables
+ * @returns {object} Object ที่มีเมธอดสำหรับจัดการฐานข้อมูล
  */
 function initializeDatabase() {
   const USE_FIREBASE = !!process.env.FIREBASE_SERVICE_ACCOUNT;
 
   if (USE_FIREBASE) {
-    // ---------- Firestore (Firebase Admin) Implementation ----------
+    // ---------- ส่วนของการทำงานกับ Firestore ----------
     console.log("Initializing database connection: Firestore");
     const admin = require("firebase-admin");
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
@@ -47,7 +51,11 @@ function initializeDatabase() {
         return db.runTransaction(async t => {
           const playerDoc = await t.get(playerRef);
           const oldScore = playerDoc.exists ? (playerDoc.data().score || 0) : 0;
-          t.set(playerRef, { score: oldScore + delta, updated_at: fv.serverTimestamp() }, { merge: true });
+          t.set(
+            playerRef,
+            { score: oldScore + delta, updated_at: fv.serverTimestamp() },
+            { merge: true }
+          );
           t.set(communityRef, { total: fv.increment(delta) }, { merge: true });
         });
       },
@@ -55,37 +63,63 @@ function initializeDatabase() {
         const doc = await db.collection("counters").doc("community").get();
         return doc.exists ? { total: doc.data().total || 0 } : { total: 0 };
       },
+      // [ฟังก์ชันใหม่] ดึงข้อมูลผู้เล่นจากชื่อ
+      getPlayer: async (name) => {
+        const docRef = db.collection("players").doc(name);
+        const doc = await docRef.get();
+        if (!doc.exists) {
+          return null; // คืนค่า null หากไม่พบผู้เล่น
+        }
+        return { name: doc.id, score: doc.data().score || 0 };
+      },
       getType: () => 'firestore'
     };
   } else {
-    // ---------- SQLite (better-sqlite3) Implementation ----------
+    // ---------- ส่วนของการทำงานกับ SQLite ----------
     console.log("Initializing database connection: Local SQLite");
     const Database = require("better-sqlite3");
     const DB_PATH = process.env.DB_PATH || path.join(__dirname, "scores.db");
     const sqlite = new Database(DB_PATH);
 
+    // [เพิ่มใหม่] ปรับแต่ง PRAGMA ให้เหมาะกับงานเขียนอ่านเบาๆ และไฟล์เดี่ยว
+    try {
+      sqlite.pragma("journal_mode = WAL");
+      sqlite.pragma("synchronous = NORMAL");
+    } catch (_) {}
+
     // สร้าง Table หากยังไม่มี
     sqlite.exec(`
       CREATE TABLE IF NOT EXISTS players (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INTEGER PRIMARY KEY,
         name TEXT NOT NULL UNIQUE,
         score INTEGER NOT NULL DEFAULT 0,
-        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
       CREATE INDEX IF NOT EXISTS idx_players_score ON players(score DESC);
       CREATE TABLE IF NOT EXISTS counters (
-        id INTEGER PRIMARY KEY CHECK(id=1),
+        id INTEGER PRIMARY KEY,
         total INTEGER NOT NULL DEFAULT 0
       );
       INSERT INTO counters (id, total) VALUES (1, 0) ON CONFLICT(id) DO NOTHING;
     `);
 
-    // Pre-compile statements for performance
-    const getLeaderboardStmt = sqlite.prepare("SELECT name, score FROM players ORDER BY score DESC, updated_at ASC LIMIT 50");
-    const getCommunityStmt = sqlite.prepare("SELECT total FROM counters WHERE id = 1");
+    // เตรียม Statement ไว้ล่วงหน้าเพื่อประสิทธิภาพที่ดีกว่า
+    const getLeaderboardStmt = sqlite.prepare(
+      "SELECT name, score FROM players ORDER BY score DESC, updated_at ASC LIMIT 50"
+    );
+    const getCommunityStmt = sqlite.prepare(
+      "SELECT total FROM counters WHERE id = 1"
+    );
+    const getPlayerStmt = sqlite.prepare(
+      "SELECT name, score FROM players WHERE name = ?"
+    ); // [Statement ใหม่]
     const addScoreTransaction = sqlite.transaction((name, delta) => {
-      sqlite.prepare("INSERT INTO players (name, score) VALUES (?, 0) ON CONFLICT(name) DO NOTHING").run(name);
-      sqlite.prepare("UPDATE players SET score = score + ?, updated_at = CURRENT_TIMESTAMP WHERE name = ?").run(delta, name);
+      sqlite.prepare(
+        "INSERT INTO players (name, score) VALUES (?, 0) ON CONFLICT(name) DO NOTHING"
+      ).run(name);
+      sqlite.prepare(
+        "UPDATE players SET score = score + ?, updated_at = CURRENT_TIMESTAMP WHERE name = ?"
+      ).run(delta, name);
       sqlite.prepare("UPDATE counters SET total = total + ? WHERE id = 1").run(delta);
     });
 
@@ -93,52 +127,60 @@ function initializeDatabase() {
       getLeaderboard: async () => getLeaderboardStmt.all(),
       addScore: async (name, delta) => addScoreTransaction(name, delta),
       getCommunityTotal: async () => getCommunityStmt.get() || { total: 0 },
+      // [ฟังก์ชันใหม่] ดึงข้อมูลผู้เล่นจากชื่อ
+      getPlayer: async (name) => getPlayerStmt.get(name) || null,
       getType: () => 'sqlite'
     };
   }
 }
 
+// เริ่มต้นการเชื่อมต่อฐานข้อมูล
 dbService = initializeDatabase();
 
 
-// --- 3. MIDDLEWARES ---
-app.use(compression()); // บีบอัด Response เพื่อลดขนาด
-app.use(express.json()); // แปลง Request body ที่เป็น JSON
+// --- 3. MIDDLEWARES (ซอฟต์แวร์ตัวกลาง) ---
+app.use(compression()); // บีบอัด Response เพื่อลดขนาดและเพิ่มความเร็ว
 
-// ตั้งค่า CORS หากมีการระบุ Origin
+// [ปรับปรุง] จำกัดขนาด JSON เพื่อกันสแปม/ผิดพลาด และ parse JSON body
+app.use(express.json({ limit: "128kb" })); // แปลง Request body ที่เป็น JSON ให้อ่านได้
+
+// ตั้งค่า CORS หากมีการเรียก API จากโดเมนอื่น
 if (process.env.CORS_ORIGIN) {
   const origins = process.env.CORS_ORIGIN.split(",").map(s => s.trim());
   app.use(cors({ origin: origins }));
+  // [เพิ่มใหม่] รองรับ preflight สำหรับทุกเส้นทาง (เช่น POST /score)
+  app.options("*", cors({ origin: origins }));
 }
 
-// ให้บริการไฟล์ Static จากโฟลเดอร์ public
+// ให้บริการไฟล์ Static (เช่น index.html, style.css) จากโฟลเดอร์ public
 app.use(express.static(path.join(__dirname, "public"), { maxAge: "1h" }));
 
 
-// --- 4. UTILS & RATE LIMITING ---
+// --- 4. UTILS & RATE LIMITING (ฟังก์ชันเสริมและระบบป้องกัน) ---
 /**
- * ทำความสะอาดชื่อผู้ใช้: อนุญาตเฉพาะตัวอักษร, ตัวเลข, _, -, และเว้นวรรค
- * @param {string} str - The input string.
- * @returns {string} The sanitized string.
+ * ทำความสะอาดชื่อผู้ใช้: อนุญาตเฉพาะอักขระที่ปลอดภัยและจำกัดความยาว
+ * @param {string} str - ชื่อที่รับเข้ามา
+ * @returns {string} - ชื่อที่ทำความสะอาดแล้ว
  */
 function sanitizeName(str) {
-  return String(str || "").replace(/[^\p{L}\p{N}_\- ]/gu, "").trim().slice(0, 15);
+  return String(str || "").replace(/[^\p{L}\p{N}_\\- ]/gu, "").trim().slice(0, 15);
 }
 
-// Rate Limiting: ป้องกันการยิง Request ถี่เกินไป
+// Rate Limiting: ป้องกันการยิง Request ถี่เกินไปจาก IP เดียว
 const rateLimitStore = new Map();
 const RATE_LIMIT_WINDOW_MS = 1000;
 const RATE_LIMIT_MAX_REQUESTS = 40;
 
 function rateLimiter(req, res, next) {
-  // ใช้ Rate Limit เฉพาะ Endpoint ที่สำคัญ (/score)
-  if (req.path !== "/score") return next();
+  if (req.path !== "/score") return next(); // ใช้ Rate Limit เฉพาะ Endpoint ที่สำคัญ
 
-  const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "anonymous";
+  const ip =
+    req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+    req.socket.remoteAddress ||
+    "anonymous";
   const now = Date.now();
   const entry = rateLimitStore.get(ip) || { count: 0, timestamp: now };
 
-  // ถ้าเวลาผ่านไปเกิน window ที่กำหนด ให้รีเซ็ต
   if (now - entry.timestamp > RATE_LIMIT_WINDOW_MS) {
     entry.timestamp = now;
     entry.count = 0;
@@ -147,7 +189,6 @@ function rateLimiter(req, res, next) {
   entry.count++;
   rateLimitStore.set(ip, entry);
 
-  // ถ้าจำนวน request เกินกำหนด ให้ส่ง 429 Too Many Requests
   if (entry.count > RATE_LIMIT_MAX_REQUESTS) {
     return res.status(429).json({ ok: false, message: "Too many requests" });
   }
@@ -155,18 +196,20 @@ function rateLimiter(req, res, next) {
   next();
 }
 
-// ล้าง Rate Limit Store ทุกๆ 10 นาที เพื่อไม่ให้หน่วยความจำเต็ม
+// ล้าง Rate Limit Store เป็นระยะเพื่อไม่ให้หน่วยความจำเต็ม
 setInterval(() => {
-    const now = Date.now();
-    for (const [ip, entry] of rateLimitStore.entries()) {
-        if (now - entry.timestamp > RATE_LIMIT_WINDOW_MS * 10) {
-            rateLimitStore.delete(ip);
-        }
+  const now = Date.now();
+  for (const [ip, entry] of rateLimitStore.entries()) {
+    if (now - entry.timestamp > RATE_LIMIT_WINDOW_MS * 60) {
+      // ล้าง IP ที่ไม่ active เกิน 1 นาที
+      rateLimitStore.delete(ip);
     }
+  }
 }, 10 * 60 * 1000);
 
 
-// --- 5. API ROUTES ---
+// --- 5. API ROUTES (เส้นทาง API) ---
+// ดึงข้อมูลตารางคะแนน
 app.get("/leaderboard", async (_req, res) => {
   try {
     const data = await dbService.getLeaderboard();
@@ -177,11 +220,31 @@ app.get("/leaderboard", async (_req, res) => {
   }
 });
 
+// [ENDPOINT ใหม่] ดึงข้อมูลผู้เล่นรายคน
+app.get("/player/:name", async (req, res) => {
+  try {
+    const name = sanitizeName(req.params.name);
+    if (!name) {
+      return res.status(400).json({ ok: false, message: "Invalid name" });
+    }
+    const data = await dbService.getPlayer(name);
+    if (data) {
+      res.json(data);
+    } else {
+      // ส่ง 404 Not Found เมื่อไม่พบผู้เล่น
+      res.status(404).json({ ok: false, message: "Player not found" });
+    }
+  } catch (error) {
+    console.error(`Error fetching player ${req.params.name}:`, error);
+    res.status(500).json({ ok: false, message: "Internal Server Error" });
+  }
+});
+
+// เพิ่ม/อัปเดตคะแนน
 app.post("/score", rateLimiter, async (req, res) => {
   try {
     const { name, delta } = req.body || {};
     const cleanName = sanitizeName(name);
-    // ตรวจสอบและจำกัดค่า delta ที่ส่งมา
     const validatedDelta = Math.min(Math.max(parseInt(delta, 10) || 0, 0), 500);
 
     if (!cleanName || validatedDelta <= 0) {
@@ -196,6 +259,7 @@ app.post("/score", rateLimiter, async (req, res) => {
   }
 });
 
+// ดึงข้อมูลคะแนนรวม
 app.get("/community", async (_req, res) => {
   try {
     const data = await dbService.getCommunityTotal();
@@ -212,7 +276,7 @@ app.get("/healthz", (_req, res) => {
 });
 
 
-// --- 6. SERVER STARTUP ---
+// --- 6. SERVER STARTUP (การเริ่มเซิร์ฟเวอร์) ---
 app.listen(PORT, () => {
   console.log(`Debirun Pop server listening on http://localhost:${PORT}`);
   console.log(`Database in use: ${dbService.getType()}`);
