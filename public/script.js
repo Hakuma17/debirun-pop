@@ -9,11 +9,17 @@ const scoreDisplay   = document.getElementById('score');
 const playerNameDisplay = document.getElementById('playerName');
 const scoreboard     = document.getElementById('scoreboard');
 
+// ===== Co-op meter elements (ใหม่) =====
+const coopFill = document.getElementById('coopFill');
+const coopText = document.getElementById('coopText');
+const GOAL = 1000;           // แต้มต่อ 1 เลเวลของพลังรวม (ปรับได้)
+let lastLevel = 0;
+
 // --- Assets ---
 const IMG1 = 'พื้นหลังใส-1.png';
 const IMG2 = 'พื้นหลังใส-2.png';
-const popSound      = new Audio('pop1.mp3');              // คลิกปกติ
-const rapidPopSound = new Audio('จิ้มรั่วๆ.mp3');        // เสียงกำลังใจเมื่อครบสตรีค
+const popSound      = new Audio('pop1.mp3');       // คลิกปกติ
+const rapidPopSound = new Audio('จิ้มรั่วๆ.mp3'); // เมื่อครบสตรีค
 const idleSound     = new Audio('เชิญชวนจิ้มน่าจอ.mp3');
 
 [popSound, rapidPopSound, idleSound].forEach(a => { a.preload = 'auto'; a.loop = false; });
@@ -36,12 +42,8 @@ const clickQueue = { pending: 0 };
 const FLUSH_MS = 1500;
 
 // ---------- เงื่อนไข “กด 30 ครั้งติดกัน” ----------
-/**
- * สะสมสตรีคต่อเนื่อง: ถ้าห่างกันเกิน STREAK_RESET_MS จะรีเซ็ตสตรีค
- * เมื่อสตรีค % STREAK_TARGET === 0 (เช่น 30, 60, 90 …) ให้เล่น rapidPopSound
- */
 const STREAK_TARGET   = 30;    // ครบ 30 ครั้งติดกัน
-const STREAK_RESET_MS = 1500;  // เว้นเกินนี้ถือว่าขาดตอน (ปรับได้)
+const STREAK_RESET_MS = 1500;  // เว้นเกินนี้ถือว่าขาดตอน
 let streakCount = 0;
 let lastClickAt = 0;
 // ----------------------------------------------
@@ -100,6 +102,7 @@ async function updateLeaderboard() {
   try {
     const res = await fetch(`${API_URL}/leaderboard`, { signal: lbAbortController.signal });
     const data = await res.json();
+    if (!scoreboard) return; // เผื่อหน้าไม่มี
     scoreboard.innerHTML = '';
     data.forEach(p => {
       const li = document.createElement('li');
@@ -118,6 +121,30 @@ function sanitizeName(str) {
   return cleaned.slice(0, 15);
 }
 
+// ===== Co-op: อัปเดตพลังรวมของดัสเรี่ยน (ใหม่) =====
+async function updateCommunity() {
+  if (!coopFill || !coopText) return; // ถ้าไม่มี element ก็ข้าม
+  try {
+    const res = await fetch(`${API_URL}/community`);
+    const { total = 0 } = await res.json();
+    const level = Math.floor(total / GOAL) + 1;
+    const inLevel = total % GOAL;
+    const pct = Math.min(100, (inLevel / GOAL) * 100);
+
+    coopFill.style.width = `${pct}%`;
+    coopText.textContent = `${inLevel.toLocaleString()} / ${GOAL.toLocaleString()} • Lv.${level}`;
+
+    if (level > lastLevel) {
+      // เอฟเฟกต์เลเวลอัปเล็ก ๆ
+      document.body.animate([{filter:'brightness(1)'},{filter:'brightness(1.25)'},{filter:'brightness(1)'}],
+                            {duration:700, easing:'ease'});
+      lastLevel = level;
+    }
+  } catch (e) {
+    // เงียบไว้ ไม่ต้องรบกวนผู้เล่น
+  }
+}
+
 // --- Score flusher ---
 async function flushQueue() {
   if (!username || clickQueue.pending <= 0) return;
@@ -129,6 +156,8 @@ async function flushQueue() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: username, delta })
     });
+    // อัปเดตมิเตอร์รวมทันทีหลังส่งสำเร็จ
+    updateCommunity();
   } catch (e) {
     clickQueue.pending += delta; // เก็บแต้มคืนถ้าส่งไม่สำเร็จ
     console.error('flush failed', e);
@@ -156,6 +185,11 @@ startButton.addEventListener('click', async () => {
 
   scheduleIdle();
   setInterval(flushQueue, FLUSH_MS);
+
+  // อัปเดตทั้งมิเตอร์ Co-op และ (ถ้าต้อง) leaderboard
+  setInterval(updateCommunity, 3000);
+  updateCommunity();
+
   setInterval(updateLeaderboard, 5000);
   updateLeaderboard();
 });

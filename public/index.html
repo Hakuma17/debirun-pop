@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Debirun Pop — Space Police</title>
+  <title>Debirun Pop — Dustarian Mission</title>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
@@ -11,14 +12,51 @@
   <meta name="theme-color" content="#0b1130">
 </head>
 <body>
-  <div class="login-container" id="loginContainer">
-    <h1>DEBIRUN POP</h1>
-    <p>ENTER YOUR AGENT NAME</p>
-    <input type="text" id="nameInput" placeholder="Your Name" maxlength="15" autocomplete="off" />
-    <button id="startButton">START MISSION</button>
+  <!-- พื้นหลังจักรวาล + ดาวตก -->
+  <div class="cosmos" aria-hidden="true">
+    <div class="meteor m1"></div>
+    <div class="meteor m2"></div>
+    <div class="meteor m3"></div>
   </div>
 
-  <div class="game-container" id="gameContainer" style="display:none;">
+  <!-- หน้าเข้าเกม -->
+  <section class="landing login-container" id="loginContainer">
+    <div class="landing-card">
+      <div class="brand">
+        <h1 class="logo">DEBIRUN <span>POP</span></h1>
+        <p class="tagline">ภารกิจพิทักษ์จักรวาลของ <strong>ดัสเรี่ยน</strong> ✨ ไม่มีการแข่งขัน มีแต่กำลังใจ</p>
+      </div>
+
+      <figure class="hero">
+        <img src="พื้นหลังใส-1.png" alt="Debirun" />
+      </figure>
+
+      <div class="join">
+        <label for="nameInput">กรอกชื่อเอเจนท์</label>
+        <div class="join-row">
+          <input type="text" id="nameInput" placeholder="เช่น Hakuma" maxlength="15" autocomplete="off" />
+          <button id="startButton">เริ่มภารกิจ</button>
+        </div>
+      </div>
+
+      <div class="socials">
+        <span>ติดตาม:</span>
+        <a href="https://youtube.com/@debirunworldend?si=CWReY3AJ_qvl6nfs" target="_blank" rel="noopener">YouTube</a>
+        <a href="https://twitter.com/DebirunWorldEnd" target="_blank" rel="noopener">Twitter/X</a>
+        <a href="https://facebook.com/DebirunWorldEnd" target="_blank" rel="noopener">Facebook</a>
+        <a href="https://tiktok.com/@debirunworldend" target="_blank" rel="noopener">TikTok</a>
+      </div>
+
+      <footer class="credits">
+        ภาพประกอบ:
+        <a href="https://twitter.com/6nnae6" target="_blank" rel="noopener">@6nnae6</a>
+        • CV: Debirun
+      </footer>
+    </div>
+  </section>
+
+  <!-- หน้าเกม -->
+  <section class="game-container" id="gameContainer" style="display:none;">
     <header class="game-header">
       <div class="player-info">Agent: <span id="playerName"></span></div>
       <div class="score">Your Score: <span id="score">0</span></div>
@@ -30,15 +68,33 @@
         src="พื้นหลังใส-1.png"
         alt="Debirun"
         draggable="false"
-        aria-label="Tap to score"
+        aria-label="Tap to send star power"
       />
     </main>
 
+    <!-- ภารกิจร่วมมือ (Co-op) -->
+    <section class="coop" id="coop">
+      <h2>DUSTARIAN MISSION — พลังดาวของดัสเรี่ยน</h2>
+      <div class="bar"><div class="fill" id="coopFill" style="width:0%"></div></div>
+      <div class="coop-text">
+        <span id="coopText">0 / 1,000 • Lv.1</span>
+        <small>ทุกการแตะคือกำลังใจให้เดบิรุน ✨</small>
+      </div>
+    </section>
+
+    <!-- ลีดเดอร์บอร์ดเดิม (เก็บไว้เผื่ออนาคต; ซ่อนด้วย CSS ได้) -->
     <aside class="leaderboard">
       <h2>TOP AGENTS</h2>
       <ul id="scoreboard"></ul>
     </aside>
-  </div>
+
+    <footer class="credits ingame">
+      ภาพประกอบ:
+      <a href="https://twitter.com/6nnae6" target="_blank" rel="noopener">@6nnae6</a>
+      • CV: Debirun •
+      <a href="https://youtube.com/@debirunworldend?si=CWReY3AJ_qvl6nfs" target="_blank" rel="noopener">ติดตามเดบิรุน</a>
+    </footer>
+  </section>
 
   <script src="script.js" defer></script>
 </body>

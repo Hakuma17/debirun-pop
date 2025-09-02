@@ -1,153 +1,143 @@
-/* --- Base Styles --- */
-:root {
-  --bg: #0b1130;
-  --card: #131b48;
-  --acc: #47a3ff;
-  --text: #e9f1ff;
-  --glow: 0 0 16px rgba(71, 163, 255, .55);
+/* ===== Base / Theme ===== */
+:root{
+  --bg:#0b1130; --card:#131b48; --acc:#47a3ff; --text:#e9f1ff;
+  --glow:0 0 16px rgba(71,163,255,.55);
 }
 
-* {
-  box-sizing: border-box;
-}
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+img,button,input{ outline:none; }
+:focus,:focus-visible{ outline:none; }
 
-html, body {
-  height: 100%;
-}
-
-body {
-  margin: 0;
-  font-family: "Orbitron", system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+html,body{ height:100%; }
+body{
+  margin:0;
+  font-family:"Orbitron",system-ui,-apple-system,Segoe UI,Arial,sans-serif;
+  color:var(--text);
   background: radial-gradient(1200px 700px at 20% -10%, #13205a 0%, var(--bg) 55%) fixed;
-  color: var(--text);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
+  display:flex; justify-content:center; align-items:center;
+  overflow:hidden; position:relative;
 }
 
-/* --- Containers --- */
-.login-container,
-.game-container {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 24px;
+/* ===== Cosmic background + meteors ===== */
+.cosmos{ position:fixed; inset:0; z-index:-1; pointer-events:none; }
+.cosmos::before,.cosmos::after{
+  content:""; position:absolute; inset:-20%;
+  background:
+    radial-gradient(#fff 1px, transparent 1.5px) 0 0/3px 3px,
+    radial-gradient(#cbe5ff 1px, transparent 1.5px) 20px 40px/4px 4px,
+    radial-gradient(#a0c8ff 1px, transparent 1.5px) 60px 10px/2px 2px;
+  opacity:.7;
+  filter: drop-shadow(0 0 4px rgba(135,206,255,.35));
+  animation: starScroll 120s linear infinite;
+}
+.cosmos::after{ opacity:.45; filter:blur(.4px); animation-duration:180s; }
+
+@keyframes starScroll{
+  from{ transform:translate3d(0,0,0); }
+  to  { transform:translate3d(-600px,-300px,0); }
 }
 
-.login-container {
-  text-align: center;
-  padding-top: 8vh;
+.meteor{
+  position:absolute; width:160px; height:2px; opacity:0;
+  background:linear-gradient(90deg,#fff,rgba(255,255,255,0));
+  border-radius:999px; transform:rotate(-25deg);
+  filter: drop-shadow(0 0 6px rgba(255,255,255,.8))
+          drop-shadow(0 0 14px rgba(71,163,255,.5));
+  animation: shoot 6s linear infinite;
+}
+.m1{ top:12%; left:85%; animation-delay:1.2s; }
+.m2{ top:46%; left:18%; animation-delay:3.6s; transform:rotate(-35deg); }
+.m3{ top:78%; left:70%; animation-delay:5.8s; transform:rotate(-15deg); }
+
+@keyframes shoot{
+  0%,70%{ opacity:0; transform:translate3d(0,0,0) rotate(var(--r,-25deg)); }
+  72%   { opacity:1; }
+  100%  { opacity:0; transform:translate3d(-700px,320px,0) rotate(var(--r,-25deg)); }
 }
 
-/* --- Typography & Form Elements --- */
-h1, h2 {
-  letter-spacing: .2em;
-  text-shadow: var(--glow);
-}
+/* ===== Common Elements ===== */
+h1,h2{ letter-spacing:.2em; text-shadow:var(--glow); }
 
-input, button {
-  font: inherit;
-  border: none;
-  outline: 0;
-  border-radius: 12px;
-  padding: 14px 18px;
+input,button{
+  font:inherit; border:none; border-radius:12px; padding:14px 18px;
 }
-
-input {
-  background: #0f1740;
-  color: var(--text);
-  width: 260px;
-  margin: 16px 0;
+input{
+  background:#0f1740; color:var(--text);
+  width:100%; max-width:280px;
 }
-
-button {
-  background: linear-gradient(90deg, #2b70ff, #47a3ff);
-  color: #fff;
-  cursor: pointer;
-  box-shadow: var(--glow);
-  transition: transform 0.1s;
+button{
+  background:linear-gradient(90deg,#2b70ff,#47a3ff); color:#fff; cursor:pointer;
+  box-shadow:var(--glow); transition:transform .1s, filter .2s;
 }
-button:active {
-    transform: scale(0.95);
+button:hover{ filter:brightness(1.1); }
+button:active{ transform:scale(.96); }
+
+/* ===== Landing (หน้าเข้าเกม) ===== */
+.landing{ width:100%; padding:20px; }
+.landing-card{
+  max-width:980px; margin:0 auto;
+  display:grid; grid-template-columns:1.1fr .9fr; gap:28px;
+  background:rgba(19,27,72,.55); padding:22px; border-radius:18px;
+  box-shadow:var(--glow); backdrop-filter:blur(4px);
 }
+.brand .logo{ margin:0 0 6px; letter-spacing:.25em; }
+.brand .logo span{ color:#a8d1ff; }
+.tagline{ margin:.2rem 0 1rem; opacity:.9; }
 
+.hero{ margin:0; display:flex; align-items:center; justify-content:center; }
+.hero img{ width:min(48vmin,360px); height:auto; border-radius:16px; box-shadow:0 8px 28px rgba(0,0,0,.35); }
 
-/* --- Game Layout --- */
-.game-container {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
+.join label{ display:block; margin:6px 0 6px; opacity:.9; }
+.join-row{ display:flex; gap:10px; align-items:center; }
+.socials{ margin-top:14px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.socials a{ color:#a8d1ff; text-decoration:none; }
+.socials a:hover{ text-decoration:underline; }
+
+.credits{ margin-top:10px; font-size:14px; opacity:.85; }
+.credits a{ color:#a8d1ff; text-decoration:none; }
+.credits a:hover{ text-decoration:underline; }
+
+/* ===== Game screen ===== */
+.game-container{
+  width:100%; max-width:1100px; margin:0 auto; padding:16px;
+  display:flex; flex-direction:column; height:100%;
 }
+.game-header{ display:flex; justify-content:space-between; gap:16px; margin-bottom:10px; }
+.main-game{ flex:1; display:flex; justify-content:center; align-items:center; min-height:40vh; }
 
-.game-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
+#debirunImage{
+  width:min(68vmin,520px); height:auto;
+  user-select:none; -webkit-user-drag:none;
+  transition:transform .06s ease; cursor:pointer; touch-action:manipulation;
+  border-radius:12px;
 }
+#debirunImage.active{ transform:scale(.96); }
 
-.main-game {
-  flex-grow: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+/* ===== Co-op meter ===== */
+.coop{
+  background:rgba(19,27,72,.75); backdrop-filter:blur(3px);
+  border-radius:14px; padding:12px 16px; margin:14px 0 8px;
+  box-shadow:0 0 20px rgba(71,163,255,.25);
 }
-
-#debirunImage {
-  width: min(68vmin, 520px);
-  height: auto;
-  user-select: none;
-  -webkit-user-drag: none;
-  transition: transform .06s ease;
-  cursor: pointer;
-  touch-action: manipulation;
+.coop h2{ margin:0 0 8px; letter-spacing:.12em; }
+.coop .bar{
+  height:14px; border-radius:999px; overflow:hidden;
+  background:rgba(255,255,255,.15); box-shadow:inset 0 0 6px rgba(0,0,0,.25);
 }
+.coop .fill{ height:100%; width:0%; background:linear-gradient(90deg,#2b70ff,#47a3ff); transition:width .5s ease; }
+.coop .coop-text{ margin-top:8px; display:flex; gap:10px; align-items:baseline; }
+.coop .coop-text small{ opacity:.8; }
 
-#debirunImage.active {
-  transform: scale(0.96);
-}
+/* ===== Leaderboard (ซ่อนถ้าไม่อยากแข่ง) ===== */
+.leaderboard{ display:none; } /* ถ้าอยากโชว์ เอาบรรทัดนี้ออก */
 
-/* --- Leaderboard --- */
-.leaderboard {
-  background: var(--card);
-  padding: 12px 16px;
-  border-radius: 14px;
-  box-shadow: var(--glow);
-  max-height: 25vh;
-  overflow-y: auto;
-}
+/* In-game credits */
+footer.credits.ingame{ text-align:center; margin-top:10px; }
 
-.leaderboard ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.leaderboard li {
-  display: flex;
-  justify-content: space-between;
-  padding: 6px 4px;
-  border-bottom: 1px solid rgba(255, 255, 255, .06);
-}
-
-.leaderboard li:last-child {
-    border-bottom: none;
-}
-
-.leaderboard li.me {
-  color: #fff;
-  background: rgba(71, 163, 255, .12);
-  border-radius: 8px;
-}
-
-/* Responsive adjustments */
-@media (max-width: 900px) {
-  .game-container {
-    gap: 16px;
-    padding: 16px;
-  }
-  .main-game {
-      min-height: 45vh;
-  }
+/* ===== Responsive ===== */
+@media (max-width:960px){
+  .landing-card{ grid-template-columns:1fr; text-align:center; }
+  .join-row{ flex-direction:column; align-items:stretch; }
+  .hero img{ width:min(64vmin,420px); }
+  .game-container{ gap:16px; padding:16px; }
 }
