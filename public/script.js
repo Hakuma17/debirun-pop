@@ -1,9 +1,12 @@
 // ===================================================================
-// DEBIRUN POP - SCRIPT V3 (Final)
+// DEBIRUN POP - SCRIPT V3 (Final, Fixed)
 // - เพิ่มระบบ Modal (ตารางคะแนน, คู่มือ)
 // - เพิ่มระบบโหลดคะแนนเดิมของผู้เล่น
 // - ปรับปรุงโครงสร้างและเพิ่มคอมเมนต์อธิบายอย่างละเอียด
+// - FIX: sanitizeName ใช้ \p{L}\p{N} + อนุญาต _ เว้นวรรค และขีดกลาง (-) พร้อมอ้างอิง config.MAX_NAME_LENGTH
 // ===================================================================
+
+"use strict";
 
 // --- 1. DOM ELEMENTS ---
 // ส่วนที่เชื่อมต่อกับ HTML Elements ทั้งหมดที่ต้องใช้ในเกม
@@ -145,10 +148,11 @@ async function getPlayerScore(name) {
       const data = await response.json();
       return data.score || 0;
     }
-    return 0; // คืนค่า 0 หากไม่พบผู้เล่น (สถานะ 404)
+    // 404 หรืออื่น ๆ → คืน 0
+    return 0;
   } catch (error) {
     console.error('Failed to get player score:', error);
-    return 0; // คืนค่า 0 หากการเชื่อมต่อล้มเหลว
+    return 0;
   }
 }
 
@@ -190,7 +194,7 @@ async function updateLeaderboard() {
     
     elements.leaderboardList.innerHTML = ''; // ล้างข้อมูลเก่า
     
-    if (!data || data.length === 0) {
+    if (!Array.isArray(data) || data.length === 0) {
       elements.leaderboardList.innerHTML = '<li>ยังไม่มีข้อมูล...</li>';
       return;
     }
@@ -198,7 +202,7 @@ async function updateLeaderboard() {
     data.forEach((player, index) => {
       const li = document.createElement('li');
       // เพิ่มลำดับ, ชื่อ, และคะแนน
-      li.innerHTML = `<span>#${index + 1} ${player.name}</span> <span>${player.score.toLocaleString()}</span>`;
+      li.innerHTML = `<span>#${index + 1} ${player.name}</span> <span>${Number(player.score || 0).toLocaleString()}</span>`;
       if (player.name === gameState.username) {
         li.classList.add('me'); // ไฮไลท์ชื่อผู้เล่นปัจจุบัน
       }
@@ -265,7 +269,7 @@ async function updateCommunityMeter() {
       setTimeout(() => document.body.classList.remove('level-up'), 700);
     }
     gameState.lastLevel = level;
-  } catch (error) {
+  } catch {
     // ไม่ต้องแสดง error รบกวนผู้เล่น
   }
 }
@@ -311,9 +315,9 @@ function applySoundPrefs() {
 
 /** START: โค้ดใหม่สำหรับอัปเดตแถบสี Volume Slider */
 function updateVolumeProgress(slider) {
-  const value = slider.value;
-  const min = slider.min || 0;
-  const max = slider.max || 100;
+  const value = Number(slider.value);
+  const min = Number(slider.min || 0);
+  const max = Number(slider.max || 100);
   const progress = ((value - min) / (max - min)) * 100;
   slider.style.setProperty('--progress', `${progress}%`);
 }
@@ -364,11 +368,16 @@ async function preloadImages(...urls) { /* โค้ดส่วนนี้ท�
   await Promise.all(tasks);
 }
 
-// ฟังก์ชันทำความสะอาดชื่อ (เหมือนเดิม)
+// ฟังก์ชันทำความสะอาดชื่อ (เหมือนเดิมแต่ FIX อ้าง config.MAX_NAME_LENGTH)
 function sanitizeName(str) {
-  const cleaned = String(str || "").replace(/[^\p{L}\p{N}_\- ]/gu, "").trim();
-  return cleaned.slice(0, config.MAX_NAME_LENGTH);
+  // อนุญาต: ตัวอักษรทุกภาษา (\p{L}), ตัวเลข (\p{N}), ขีดล่าง _, เว้นวรรค และขีดกลาง -
+  // วาง - ท้าย character class หรือ escape เป็น \- เพื่อกัน "ช่วง"
+  return String(str || "")
+    .replace(/[^\p{L}\p{N}_ \-]/gu, "")
+    .trim()
+    .slice(0, config.MAX_NAME_LENGTH);
 }
+
 
 /**
  * เริ่มต้นการทำงานของ Timers ต่างๆ ในเกม (ส่งคะแนน, อัปเดตมิเตอร์รวม)
@@ -503,7 +512,7 @@ function main() {
   applySoundPrefs();
 
   // START: แก้ไข - อัปเดต UI ของ slider ให้ตรงกับค่าที่โหลดมา
-  elements.volumeSlider.value = Math.round(gameState.sound.volume * 100);
+  elements.volumeSlider.value = String(Math.round(gameState.sound.volume * 100));
   elements.volumeValue.textContent = `${elements.volumeSlider.value}%`;
   updateVolumeProgress(elements.volumeSlider);
   // END: แก้ไข
@@ -542,7 +551,7 @@ function main() {
     elements.toggleIdle.checked  = !!gameState.sound.enable.idle;
     const allOn = elements.togglePop.checked && elements.toggleRapid.checked && elements.toggleIdle.checked;
     elements.toggleAll.checked = allOn;
-    elements.volumeSlider.value = Math.round(gameState.sound.volume * 100);
+    elements.volumeSlider.value = String(Math.round(gameState.sound.volume * 100));
     elements.volumeValue.textContent = `${elements.volumeSlider.value}%`;
     updateVolumeProgress(elements.volumeSlider); // อัปเดตแถบสีตอนเปิด
     elements.settingsModal.style.display = 'flex';
@@ -589,7 +598,7 @@ function main() {
   elements.toggleRapid.addEventListener('change', (e)=>{
     gameState.sound.enable.rapidPop = e.target.checked;
     applySoundPrefs(); saveSoundPrefs();
-    elements.toggleAll.checked = elements.togglePop.checked && elements.toggleRapid.checked && elements.toggleIdle.checked;
+    elements.toggleAll.checked = elements.togglePop.checked && elements.toggleIdle.checked && elements.toggleRapid.checked;
   });
 
   elements.toggleIdle.addEventListener('change', (e)=>{
@@ -610,7 +619,7 @@ function main() {
   // START: แก้ไข - เปลี่ยนจาก 'input' เป็น 'change' สำหรับการ save
   // เพื่อให้บันทึกค่าเฉพาะตอนปล่อยเมาส์ ลดภาระการเขียน LocalStorage
   elements.volumeSlider.addEventListener('change', ()=>{
-      saveSoundPrefs();
+    saveSoundPrefs();
   });
   // END: แก้ไข
 }
