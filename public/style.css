@@ -1,45 +1,62 @@
 /* ===================================================================
-// DEBIRUN POP - STYESHEET V3 (Final, Fixed)
-// - แก้ไขสไตล์ Volume Slider ให้แสดงแถบสีได้ถูกต้อง
-// =================================================================== */
+   DEBIRUN POP - STYLESHEET V3 (Final, Fixed)
+   - Mobile-first: safe-area, แก้ 100vh มือถือด้วย --vh
+   - ปรับตัวหนังสือให้อ่านง่ายขึ้นด้วย text-shadow
+   - ปรับเลย์เอาต์/ปุ่ม/โมดอลให้เป็นมิตรกับมือถือ
+   - แก้สไตล์ Volume Slider ให้แสดงแถบสีได้ถูกต้อง
+   - FIX โมดอล: แยกสไตล์ปุ่มหลักออกจาก .modal-close
+   ────────────────────────────────────────────────────────────
+   หมายเหตุ: ให้มี JS ตั้งค่า --vh จาก window.innerHeight ด้วย
+=================================================================== */
 
-/* --- 1. THEME & COLOR PALETTE --- */
+/* --- 1) THEME & COLOR PALETTE --------------------------------- */
 :root {
-  /* Core Colors */
+  /* Core */
   --bg: #0b1130;
   --card: #131b48;
   --text: #e9f1ff;
-  
-  /* Accent Colors */
-  --acc-hero: #47a3ff;      /* สีน้ำเงิน-ฟ้า ตัวแทนของเอเจนท์และเทคโนโลยี */
-  --acc-demon: #ff47a3;      /* สีม่วง-ชมพู ตัวแทนพลังของเดบิรุน */
-  --acc-demon-light: #ff89c3;/* สีชมพูอ่อนสำหรับลิงก์และข้อความรอง */
 
-  /* Glow Effects */
+  /* Accent */
+  --acc-hero: #47a3ff;       /* สีน้ำเงิน-ฟ้า ตัวแทนเอเจนท์/เทคโนโลยี */
+  --acc-demon: #ff47a3;      /* ม่วง-ชมพู ตัวแทนพลังของเดบิรุน  */
+  --acc-demon-light: #ff89c3;/* ชมพูอ่อนสำหรับลิงก์/ข้อความรอง */
+
+  /* Effects */
   --glow-hero: 0 0 16px rgba(71, 163, 255, .55);
   --glow-demon: 0 0 16px rgba(255, 71, 163, .55);
-
-  /* Text Shadow for Readability (เงาข้อความเพื่อให้อ่านง่าย) */
   --text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+
+  /* มือถือ: แก้ 100vh ด้วยตัวแปรนี้ (JS จะ set ให้) */
+  --vh: 1vh;
+
+  /* Slider sizes */
+  --thumb-size: 20px;
+  --track-height: 6px;
 }
 
-/* --- 2. BASE & TYPOGRAPHY --- */
+/* --- 2) BASE & TYPOGRAPHY ------------------------------------- */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { height: 100%; }
+/* height:auto + เปิดสกรอล แก้ปัญหาหน้าถูกตัดบนมือถือ */
+html, body { height: auto; }
 
 body {
   margin: 0;
-  /* ใช้ Kanit เป็นฟอนต์หลักสำหรับภาษาไทย */
-  font-family: 'Kanit', sans-serif;
+  font-family: 'Kanit', sans-serif; /* ฟอนต์ไทยหลัก */
   color: var(--text);
   background: radial-gradient(1200px 700px at 20% -10%, #13205a 0%, var(--bg) 55%) fixed;
+
   display: flex; justify-content: center; align-items: center;
-  overflow: hidden; position: relative;
-  /* เพิ่มเงาให้ข้อความทั้งหมดเพื่อให้อ่านง่ายขึ้น */
+  overflow-y: auto; overflow-x: hidden; position: relative;
+
+  /* เพิ่มเงาให้ข้อความทั้งหมดเพื่อให้อ่านง่าย */
   text-shadow: var(--text-shadow);
+
+  /* เผื่อ safe-area (รอยบาก/ขอบจอ) */
+  padding-top: max(0px, env(safe-area-inset-top));
+  padding-bottom: max(0px, env(safe-area-inset-bottom));
 }
 
-/* vignette เบา ๆ ให้หน้าดูมีมิติขึ้น */
+/* vignette เบา ๆ ให้หน้าดูมีมิติ */
 body::before{
   content:""; position:fixed; inset:-2%;
   pointer-events:none; z-index:0;
@@ -48,29 +65,32 @@ body::before{
     radial-gradient(1200px 700px at 15% 110%, transparent 0 45%, rgba(0,0,0,.35) 85%);
 }
 
-/* ใช้ Orbitron เฉพาะส่วนที่ต้องการเน้นความเป็น Sci-Fi */
+/* ใช้ Orbitron เฉพาะส่วนที่ต้องการความ Sci-Fi */
 h1, h2, .player-info, .score, button, .join label { font-family: "Orbitron", sans-serif; }
 h1, h2 { letter-spacing: .2em; text-shadow: var(--glow-hero), var(--text-shadow); }
 
-/* --- 3. REMOTE SPACE BACKGROUND (โหลดภาพอวกาศออนไลน์มาวางเป็นเลเยอร์ล่าง) --- */
+/* --- 3) REMOTE SPACE BACKGROUND (เลเยอร์ล่าง) ---------------- */
 .space-remote{
   position:fixed; inset:0; z-index:-2; pointer-events:none;
   background: #040816 center/cover no-repeat;
-  opacity:.35;          /* ค่าตั้งต้น (JS จะดันขึ้นเป็น ~0.52 หลังโหลด) */
+  opacity:.35;                 /* ค่าตั้งต้น (JS อาจดันขึ้น ~0.52) */
   filter: saturate(1.1) contrast(1.05) brightness(.95);
   transition: opacity .6s ease;
 }
 
-/* เครดิตรูปให้อยู่มุมขวาล่าง ใต้หลอดคะแนน */
+/* เครดิตรูปมุมขวาล่าง (คลิกได้) */
 .bg-credit{
-  position:fixed; right:16px; bottom:10px; z-index:2;
+  position:fixed;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(10px, env(safe-area-inset-bottom));
+  z-index:2;
   font-size:12px; opacity:.65; color:#bcd7ff;
   text-shadow: var(--text-shadow);
 }
 .bg-credit .link-clean{ color:#bcd7ff; text-decoration:none; border-bottom:1px dotted transparent; }
 .bg-credit .link-clean:hover{ border-bottom-color:rgba(255,255,255,.35); }
 
-/* --- 4. COSMIC BACKGROUND & METEORS (พื้นหลังอนุภาค/ดาวตก) --- */
+/* --- 4) COSMIC BACKGROUND (จุดดาวเบา ๆ) ---------------------- */
 .cosmos { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
 .cosmos::before, .cosmos::after {
   content: ""; position: absolute; inset: -20%;
@@ -80,20 +100,34 @@ h1, h2 { letter-spacing: .2em; text-shadow: var(--glow-hero), var(--text-shadow)
     radial-gradient(#a0c8ff 1px, transparent 1.5px) 60px 10px/2px 2px;
   opacity: .25; /* ลดความชัดของจุดดาว เพื่อไม่กลืนภาพอวกาศ */
   filter: drop-shadow(0 0 4px rgba(135, 206, 255, .25));
-  animation: none; /* ปิดการเคลื่อนไหว */
+  animation: none; /* ปิดอนิเมชันให้เบา */
 }
 .cosmos::after { opacity: .18; filter: blur(.4px); }
 .meteor{ display:none; } /* ปิดดาวตกเพื่อลดภาระ */
 
-/* --- 5. COMMON UI ELEMENTS (ปุ่ม, input ทั่วไป) --- */
+/* --- 5) COMMON UI ELEMENTS ----------------------------------- */
 input, button { font: inherit; border: none; border-radius: 12px; padding: 14px 18px; transition: all .2s; }
-input { background: #0f1740; color: var(--text); width: 100%; border: 1px solid rgba(255,255,255,0.2); }
-input:focus-visible { border-color: var(--acc-hero); box-shadow: var(--glow-hero); }
-button { background: linear-gradient(90deg, #c32bff, var(--acc-demon)); color: #fff; cursor: pointer; box-shadow: var(--glow-demon); text-transform: uppercase; letter-spacing: .1em; }
-button:hover { filter: brightness(1.15); transform: translateY(-2px); }
-button:active { transform: scale(.96) translateY(0); filter: brightness(1); }
 
-/* --- 6. LANDING SCREEN (หน้าจอเริ่มต้น) --- */
+input {
+  background: #0f1740; color: var(--text); width: 100%;
+  border: 1px solid rgba(255,255,255,0.2);
+  font-size: 16px;                 /* กัน iOS ซูมเวลาโฟกัส */
+}
+input:focus-visible { border-color: var(--acc-hero); box-shadow: var(--glow-hero); }
+
+/* ปุ่มหลัก (เว้น .modal-close ออก) */
+button{
+  touch-action: manipulation;
+}
+button:not(.modal-close){
+  background: linear-gradient(90deg, #c32bff, var(--acc-demon));
+  color: #fff; cursor: pointer; box-shadow: var(--glow-demon);
+  text-transform: uppercase; letter-spacing: .1em;
+}
+button:not(.modal-close):hover { filter: brightness(1.15); transform: translateY(-2px); }
+button:not(.modal-close):active { transform: scale(.96) translateY(0); filter: brightness(1); }
+
+/* --- 6) LANDING SCREEN --------------------------------------- */
 .landing-card {
   max-width: 980px; margin: 0 auto; display: grid;
   grid-template-columns: 1.1fr .9fr; gap: 28px;
@@ -101,6 +135,9 @@ button:active { transform: scale(.96) translateY(0); filter: brightness(1); }
   border: 1px solid rgba(71, 163, 255, 0.4);
   box-shadow: var(--glow-hero), inset 0 0 12px rgba(11, 17, 48, 0.8);
   backdrop-filter: blur(4px); position: relative; overflow: hidden; z-index:1;
+
+  /* สูงเต็มจอจริงบนมือถือ (ใช้ --vh) */
+  min-height: calc(var(--vh) * 100);
 }
 .landing-card::after {
   content: ''; position: absolute; inset: 0;
@@ -112,12 +149,14 @@ button:active { transform: scale(.96) translateY(0); filter: brightness(1); }
   opacity: .5; pointer-events: none;
 }
 @keyframes scan { from { background-position: 0 0; } to { background-position: 0 100px; } }
+
 .brand .logo { margin: 0 0 6px; letter-spacing: .25em; }
 .brand .logo span { color: var(--acc-hero); }
 .hero img { width: min(48vmin, 360px); height: auto; border-radius: 16px; box-shadow: 0 8px 28px rgba(0, 0, 0, .35); }
 .join-row { display: flex; gap: 10px; align-items: center; }
 .socials { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-/* ลิงก์กดได้แต่ “ไม่มีขีด” — แสดง underline เฉพาะตอน hover จาง ๆ */
+
+/* ลิงก์กดได้แต่ไม่มีขีด (hover ค่อยโชว์จาง ๆ) */
 .socials a, .credits a, .link-clean { color: var(--acc-demon-light); text-decoration: none; border-bottom: 1px dotted transparent; }
 .socials a:hover, .credits a:hover, .link-clean:hover { border-bottom-color: rgba(255,255,255,.35); }
 
@@ -131,27 +170,44 @@ button:active { transform: scale(.96) translateY(0); filter: brightness(1); }
 }
 .credits strong { color: var(--text); font-weight: 600; font-family: 'Kanit'; }
 
-/* --- 7. GAME SCREEN (หน้าจอเล่นเกม) --- */
-.game-container { width: 100%; max-width: 1100px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; height: 100vh; z-index:1; }
-.game-header { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; margin-bottom: 10px; text-transform: uppercase; }
+/* --- 7) GAME SCREEN ------------------------------------------ */
+.game-container {
+  width: 100%; max-width: 1100px; margin: 0 auto; padding: 16px;
+  display: flex; flex-direction: column; z-index:1;
+
+  /* เดิมเป็น height:100vh → เปลี่ยนเป็น min-height:calc(var(--vh)*100) */
+  min-height: calc(var(--vh) * 100);
+}
+.game-header {
+  display: grid; grid-template-columns: 1fr auto 1fr;
+  align-items: center; gap: 16px; margin-bottom: 10px; text-transform: uppercase;
+}
 .player-info { text-align: left; }
 .score { text-align: right; }
 .game-actions { display: flex; justify-content: center; gap: 10px; }
-.action-button { background: transparent; border: 1px solid rgba(255,255,255,0.3); color: var(--text); padding: 8px; border-radius: 8px; cursor: pointer; box-shadow: none; display: flex; align-items: center; justify-content: center; }
+.action-button {
+  background: transparent; border: 1px solid rgba(255,255,255,0.3); color: var(--text);
+  padding: 8px; border-radius: 8px; cursor: pointer; box-shadow: none;
+  display: flex; align-items: center; justify-content: center;
+}
 .action-button:hover { background: rgba(255,255,255,0.1); border-color: var(--acc-hero); color: var(--acc-hero); }
 .main-game { flex: 1; display: flex; justify-content: center; align-items: center; min-height: 40vh; }
-#debirunImage { width: min(68vmin, 520px); height: auto; user-select: none; transition: transform .06s ease, filter .2s ease; cursor: pointer; border-radius: 12px; }
+#debirunImage {
+  width: min(68vmin, 520px); height: auto; user-select: none;
+  transition: transform .06s ease, filter .2s ease; cursor: pointer; border-radius: 12px;
+  touch-action: manipulation; will-change: transform;
+}
 #debirunImage.active { transform: scale(.96); filter: drop-shadow(var(--glow-demon)); }
 
-/* --- 7.5 CO-OP METER (แถบพลัง) --- */
+/* --- 7.5) CO-OP METER ---------------------------------------- */
 .coop {
   background: rgba(19, 27, 72, .78); backdrop-filter: blur(3px);
   border-radius: 14px; padding: 12px 16px; margin: 14px 0 8px;
   border: 1px solid rgba(71, 163, 255, 0.3); box-shadow: 0 0 20px rgba(71, 163, 255, .25);
 }
 .coop h2 { margin: 0 0 8px; letter-spacing: .12em; }
-.coop .bar { 
-  height: 18px; border-radius: 999px; overflow: hidden; 
+.coop .bar {
+  height: 18px; border-radius: 999px; overflow: hidden;
   background: linear-gradient(180deg, rgba(6,10,30,.8), rgba(9,14,38,.95));
   box-shadow: inset 0 2px 6px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.06);
   padding: 2px;
@@ -170,12 +226,54 @@ button:active { transform: scale(.96) translateY(0); filter: brightness(1); }
 }
 .coop .coop-text { margin-top: 8px; display: flex; gap: 10px; align-items: baseline; justify-content: space-between; }
 
-/* --- 8. MODALS (หน้าต่าง Pop-up) --- */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 16px; }
-.modal-content { background: var(--card); border: 1px solid var(--acc-hero); border-radius: 16px; box-shadow: var(--glow-hero); padding: 24px; width: 100%; max-width: 500px; position: relative; animation: modal-fade-in .3s ease; }
-.modal-close { position: absolute; top: 10px; right: 10px; background: transparent; border: none; font-size: 32px; color: var(--text); cursor: pointer; padding: 4px; line-height: 1; text-shadow: none; }
-.modal-content h2 { margin-top: 0; }
-.modal-body { max-height: 60vh; overflow-y: auto; font-size: 16px; line-height: 1.6; }
+/* --- 8) MODALS ------------------------------------------------ */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(5,8,20,.78);
+  -webkit-backdrop-filter: blur(6px); /* สำคัญสำหรับ iOS Safari */
+  backdrop-filter: blur(6px);
+  display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 16px;
+
+  /* โมดอลสูงตามจอจริงบนมือถือ */
+  min-height: calc(var(--vh) * 100);
+}
+.modal-content {
+  background: var(--card);
+  border: 1px solid var(--acc-hero); border-radius: 16px;
+  box-shadow: var(--glow-hero);
+  width: min(92vw, 560px); max-width: 560px; position: relative;
+  padding: 24px;
+  animation: modal-fade-in .25s ease;
+
+  /* จัด layout ภายในให้เป็นคอลัมน์ */
+  display: flex; flex-direction: column; gap: 10px;
+  isolation: isolate;
+
+  /* จำกัดความสูงรวม */
+  /* เดิมผิด: max-height: calc(var(--vh) * 0.85); */
+  max-height: calc(var(--vh) * 85);
+}
+
+
+.modal-content h2 { margin: 0; }
+
+.modal-close{
+  all: unset;
+  position: absolute; top: 10px; right: 10px;
+  width: 36px; height: 36px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text); font-size: 22px; line-height: 1; cursor: pointer;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.15);
+}
+.modal-close:hover{ background: rgba(255,255,255,.15); }
+
+.modal-body {
+  flex: 1 1 auto;
+  max-height: min(60vh, calc(var(--vh) * 60));
+  overflow-y: auto; font-size: 16px; line-height: 1.6;
+  overscroll-behavior: contain;   /* สกรอลในโมดอลอย่างเดียว */
+}
 .modal-body h3 { color: var(--acc-demon-light); font-family: "Orbitron"; }
 .modal-body ol { padding-left: 24px; }
 #leaderboard-list { list-style: none; padding: 0; }
@@ -184,7 +282,7 @@ button:active { transform: scale(.96) translateY(0); filter: brightness(1); }
 #leaderboard-list li.me { font-weight: bold; color: var(--acc-demon-light); }
 @keyframes modal-fade-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 
-/* --- 8.1 SETTINGS UI (ใหม่) --- */
+/* --- 8.1) SETTINGS UI ---------------------------------------- */
 .settings-body{ display:flex; flex-direction:column; gap:12px; }
 .settings-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .settings-row.vol{ align-items:center; }
@@ -205,70 +303,52 @@ button:active { transform: scale(.96) translateY(0); filter: brightness(1); }
 .toggle:checked + .switch{ background:linear-gradient(90deg, var(--acc-hero), var(--acc-demon)); }
 .toggle:checked + .switch::after{ transform: translateX(20px); }
 
-
-/* =========================================================
-// START: โค้ดแก้ไขแถบเลื่อนระดับเสียง (Volume Slider)
-// ========================================================= */
-:root {
-  --thumb-size: 20px;
-  --track-height: 6px;
-}
-
-/* เทคนิคนี้จะใช้ background-image ไล่สีบนตัว input range เอง
-  โดยคำนวณความกว้างของสีจาก CSS variable `--progress` ที่เราจะกำหนดค่าจาก JavaScript
-*/
+/* --- 9) VOLUME SLIDER (แถบความคืบหน้าบนตัว input range) ------ */
+/* เทคนิค: ใช้ background-image ไล่สี + CSS var(--progress) (อัปเดตด้วย JS) */
 input[type="range"].volume {
-  -webkit-appearance: none;
-  appearance: none;
+  -webkit-appearance: none; appearance: none;
   width: 100%;
-  height: var(--thumb-size); /* ทำให้พื้นที่กดเมาส์สูงเท่าปุ่มกลมๆ */
-  background: transparent; /* ปิดพื้นหลังเดิม */
+  height: var(--thumb-size);           /* ให้ hit area สูงเท่าปุ่มกลม */
+  background: transparent;             /* ปิดพื้นหลังเดิม */
   cursor: pointer;
-  
-  --progress: 100%; /* ค่าเริ่มต้น (JS จะอัปเดตค่านี้) */
-  
-  /* สร้างแถบสีด้วย background-image */
-  background-image: linear-gradient(90deg, 
-    var(--acc-demon) 0%, 
-    var(--acc-demon) var(--progress), 
-    transparent var(--progress), /* ส่วนที่เหลือให้โปร่งใส */
+
+  --progress: 100%;                    /* ค่าเริ่มต้น (JS จะอัปเดต) */
+
+  /* แถบสีความคืบหน้า */
+  background-image: linear-gradient(
+    90deg,
+    var(--acc-demon) 0%,
+    var(--acc-demon) var(--progress),
+    transparent var(--progress),
     transparent 100%
   );
-  
-  /* ปรับขนาดและตำแหน่งของ background ให้พอดีกับ "ร่อง" ของ slider */
+
+  /* จัดให้พอดีกับร่อง (track) */
   background-size: calc(100% - var(--thumb-size)) var(--track-height);
   background-position: calc(var(--thumb-size) / 2) center;
   background-repeat: no-repeat;
 }
 
-/* สไตล์ปุ่มกลมๆ (Thumb) - สำหรับ Chrome/Edge/Safari */
+/* ปุ่มกลม (Thumb) - Chrome/Edge/Safari */
 input[type="range"].volume::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: var(--thumb-size);
-  height: var(--thumb-size);
-  background: #f0e6ff;
-  border-radius: 50%;
-  border: 2px solid var(--bg);
-  box-shadow: var(--glow-demon);
-  /* จัดตำแหน่งปุ่มกลมให้อยู่กลางร่องพอดี */
+  -webkit-appearance: none; appearance: none;
+  width: var(--thumb-size); height: var(--thumb-size);
+  background: #f0e6ff; border-radius: 50%;
+  border: 2px solid var(--bg); box-shadow: var(--glow-demon);
+
+  /* จัดปุ่มให้อยู่กลางร่องพอดี */
   margin-top: calc((var(--track-height) - var(--thumb-size)) / 2);
 }
 
-/* สไตล์ร่อง (Track) - สำหรับ Chrome/Edge/Safari */
+/* ร่อง (Track) - Chrome/Edge/Safari */
 input[type="range"].volume::-webkit-slider-runnable-track {
-  width: 100%;
-  height: var(--track-height);
+  width: 100%; height: var(--track-height);
   background: #1a214f;
   border-radius: 999px;
   box-shadow: inset 0 1px 3px rgba(0,0,0,.4);
 }
-/* =========================================================
-// END: โค้ดแก้ไขแถบเลื่อนระดับเสียง
-// ========================================================= */
 
-
-/* --- 9. MISC & RESPONSIVE (เอฟเฟกต์และ responsive) --- */
+/* --- 10) MISC & RESPONSIVE ----------------------------------- */
 .level-up { animation: levelUpShake 0.7s cubic-bezier(.36, .07, .19, .97) both; }
 @keyframes levelUpShake {
   10%, 90% { transform: translate3d(-1px, 0, 0); }
@@ -278,6 +358,7 @@ input[type="range"].volume::-webkit-slider-runnable-track {
   0%, 100% { filter: brightness(1); }
   50% { filter: brightness(1.3); }
 }
+
 @media (max-width: 960px) {
   .landing-card { grid-template-columns: 1fr; text-align: center; }
   .join-row { flex-direction: column; align-items: stretch; }
@@ -289,3 +370,18 @@ input[type="range"].volume::-webkit-slider-runnable-track {
   .player-info { grid-row: 2; }
   .score { grid-row: 2; }
 }
+
+/* --- 11) EXTRA COMPAT / SAFETY NETS --------------------------- */
+/* ใช้ dynamic viewport units ถ้ารองรับ → ช่วยให้สูงเต็มจอจริง */
+@supports (height: 100dvh) {
+  .modal-overlay { min-height: 100dvh; }
+  .game-container, .landing-card { min-height: 100dvh; }
+}
+/* iOS Safari รุ่นเก่าๆ */
+@supports (-webkit-touch-callout: none) {
+  .modal-overlay { min-height: -webkit-fill-available; }
+}
+/* ล็อกสกรอลพื้นหลังเมื่อเปิดโมดอล (ใช้ร่วมกับ JS เติมคลาส modal-open) */
+html.modal-open, body.modal-open { overflow: hidden !important; }
+/* ปรับ origin เพื่อกันอาการค้างครึ่งจอระหว่างแอนิเมชันบนบางเครื่อง */
+.modal-content { transform-origin: 50% 50%; will-change: transform; }

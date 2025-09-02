@@ -4,6 +4,8 @@
 // - เพิ่มระบบโหลดคะแนนเดิมของผู้เล่น
 // - ปรับปรุงโครงสร้างและเพิ่มคอมเมนต์อธิบายอย่างละเอียด
 // - FIX: sanitizeName ใช้ \p{L}\p{N} + อนุญาต _ เว้นวรรค และขีดกลาง (-) พร้อมอ้างอิง config.MAX_NAME_LENGTH
+// - NEW: แปลงเลขเกิน 10,000 เป็นรูปแบบย่อ K / M / B (เช่น 12.3K, 4.5M)
+// - FIX (2025-09-02): โมดอลเด้งไม่สุดบนมือถือ → refresh --vh + ล็อกสกรอลพื้นหลังด้วย .modal-open
 // ===================================================================
 
 "use strict";
@@ -88,6 +90,10 @@ const config = {
   // เวลาสำหรับเสียง Idle (ตอนไม่กด)
   IDLE_FIRST_WAIT_MS: 5000,
   IDLE_REPEAT_INTERVAL_MS: 15000,
+
+  // NEW: เกณฑ์ย่อเลข (เช่น > 10,000 แสดงเป็น 10K ขึ้นไป)
+  COMPACT_THRESHOLD: 10000,
+  COMPACT_FRACTION_DIGITS: 1, // จำนวนทศนิยมสูงสุดเวลาแสดงแบบย่อ
 };
 
 // --- 3. AUDIO ASSETS ---
@@ -130,6 +136,67 @@ const gameState = {
     volume: 1.0, // 0.0 - 1.0 (ระดับเสียงรวม)
   },
 };
+
+
+// ===================================================================
+// UTILS (ตัวช่วยทั่วไป)
+// ===================================================================
+
+/**
+ * NEW: แปลงตัวเลขให้สั้นลงเป็น K / M / B เมื่อเกิน threshold (ดีฟอลต์ 10,000)
+ * - ต่ำกว่า threshold → แสดงตัวเลขมีคอมมา 1,234
+ * - เท่ากับ/สูงกว่า threshold → 12.3K, 4.5M, 1.2B
+ */
+function formatNumberCompact(n, threshold = config.COMPACT_THRESHOLD) {
+  const num = Number(n) || 0;
+  const abs = Math.abs(num);
+  if (abs < threshold) return num.toLocaleString('en-US');
+
+  const units = [
+    { sym: 'B', val: 1e9 },
+    { sym: 'M', val: 1e6 },
+    { sym: 'K', val: 1e3 },
+  ];
+  for (const u of units) {
+    if (abs >= u.val) {
+      const out = (num / u.val).toFixed(config.COMPACT_FRACTION_DIGITS);
+      // ตัด .0 ทิ้งถ้าไม่จำเป็น (เช่น 12.0K → 12K)
+      return out.replace(/\.0$/, '') + u.sym;
+    }
+  }
+  return num.toLocaleString('en-US');
+}
+
+// === FIX: viewport & modal helpers (เพิ่มใหม่) ==================
+function refreshVHVar() {
+  // อัปเดต --vh ให้เท่ากับความสูงจริง ณ ตอนนี้
+  document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
+}
+
+function anyModalOpen() {
+  return [elements.howToPlayModal, elements.leaderboardModal, elements.settingsModal]
+    .some(m => m && getComputedStyle(m).display !== 'none');
+}
+function updateModalLock() {
+  const lock = anyModalOpen();
+  document.documentElement.classList.toggle('modal-open', lock);
+  document.body.classList.toggle('modal-open', lock);
+}
+
+function openModal(modalEl) {
+  refreshVHVar();               // สำคัญ: แก้ 100vh มือถือก่อนเปิด
+  modalEl.style.display = 'flex';
+  updateModalLock();            // ล็อกสกรอลพื้นหลัง
+}
+
+function closeModal(modalEl) {
+  modalEl.style.display = 'none';
+  updateModalLock();            // ปลดล็อกสกรอลถ้าปิดหมด
+}
+
+// รีเฟรชเมื่อหมุนจอ/ยุบ-ขยายแถบเบราว์เซอร์
+window.addEventListener('resize', refreshVHVar);
+window.addEventListener('orientationchange', refreshVHVar);
 
 
 // ===================================================================
@@ -201,8 +268,8 @@ async function updateLeaderboard() {
     
     data.forEach((player, index) => {
       const li = document.createElement('li');
-      // เพิ่มลำดับ, ชื่อ, และคะแนน
-      li.innerHTML = `<span>#${index + 1} ${player.name}</span> <span>${Number(player.score || 0).toLocaleString()}</span>`;
+      // เพิ่มลำดับ, ชื่อ, และคะแนน (ใช้รูปแบบย่อถ้าเลขใหญ่)
+      li.innerHTML = `<span>#${index + 1} ${player.name}</span> <span>${formatNumberCompact(Number(player.score || 0))}</span>`;
       if (player.name === gameState.username) {
         li.classList.add('me'); // ไฮไลท์ชื่อผู้เล่นปัจจุบัน
       }
@@ -260,8 +327,9 @@ async function updateCommunityMeter() {
     const percentage = Math.min(100, (scoreInLevel / goal) * 100);
 
     elements.coopFill.style.width = `${percentage}%`;
-    // NOTE: coopText เป็น <span> ไม่ได้มีลูกอีกชั้น จึงใช้ textContent ตรง ๆ
-    elements.coopText.textContent = `${scoreInLevel.toLocaleString()} / ${goal.toLocaleString()} • Lv.${level}`;
+    // ใช้รูปแบบย่อเมื่อค่ามาก (อ่านง่ายเวลาเลเวลสูง)
+    elements.coopText.textContent =
+      `${formatNumberCompact(scoreInLevel)} / ${formatNumberCompact(goal)} • Lv.${level}`;
 
     // เอฟเฟกต์เมื่อเลเวลอัป
     if (level > gameState.lastLevel && gameState.lastLevel !== 0) {
@@ -409,7 +477,7 @@ function handlePress(event) {
   // อัปเดตคะแนน
   gameState.score++;
   gameState.clickQueue.pending++;
-  elements.scoreDisplay.textContent = gameState.score.toLocaleString();
+  elements.scoreDisplay.textContent = formatNumberCompact(gameState.score);
 
   // เปลี่ยนภาพและเพิ่มเอฟเฟกต์
   elements.debirunImage.src = config.IMG_POPPED;
@@ -471,7 +539,7 @@ async function handleStartButtonClick() {
   // --- ส่วนสำคัญ: โหลดคะแนนเดิมของผู้เล่น ---
   const existingScore = await getPlayerScore(cleanName);
   gameState.score = existingScore;
-  elements.scoreDisplay.textContent = gameState.score.toLocaleString();
+  elements.scoreDisplay.textContent = formatNumberCompact(gameState.score);
   // ----------------------------------------
 
   gameState.username = cleanName;
@@ -530,17 +598,17 @@ function main() {
 
   // --- ตั้งค่า Event Listeners สำหรับ Modals ---
   elements.howToPlayButton.addEventListener('click', () => {
-    elements.howToPlayModal.style.display = 'flex';
+    openModal(elements.howToPlayModal);                // === FIX: ใช้ helper
   });
   elements.leaderboardButton.addEventListener('click', () => {
-    updateLeaderboard(); // อัปเดตข้อมูลทุกครั้งที่เปิด
-    elements.leaderboardModal.style.display = 'flex';
+    updateLeaderboard();                               // อัปเดตข้อมูลทุกครั้งที่เปิด
+    openModal(elements.leaderboardModal);              // === FIX
   });
   elements.closeHowToPlay.addEventListener('click', () => {
-    elements.howToPlayModal.style.display = 'none';
+    closeModal(elements.howToPlayModal);               // === FIX
   });
   elements.closeLeaderboard.addEventListener('click', () => {
-    elements.leaderboardModal.style.display = 'none';
+    closeModal(elements.leaderboardModal);             // === FIX
   });
 
   // --- NEW: Settings Modal bindings ---
@@ -554,24 +622,26 @@ function main() {
     elements.volumeSlider.value = String(Math.round(gameState.sound.volume * 100));
     elements.volumeValue.textContent = `${elements.volumeSlider.value}%`;
     updateVolumeProgress(elements.volumeSlider); // อัปเดตแถบสีตอนเปิด
-    elements.settingsModal.style.display = 'flex';
+    openModal(elements.settingsModal);                        // === FIX
   };
-  const closeSettings = () => elements.settingsModal.style.display = 'none';
+  const closeSettings = () => closeModal(elements.settingsModal); // === FIX
 
   elements.settingsButton.addEventListener('click', openSettings);
   elements.closeSettings.addEventListener('click', closeSettings);
 
   // ปิด Modal เมื่อคลิกนอกกล่อง
   [elements.howToPlayModal, elements.leaderboardModal, elements.settingsModal].forEach(modal=>{
-    modal.addEventListener('click', (e)=>{ if (e.target === modal) modal.style.display='none'; });
+    modal.addEventListener('click', (e)=>{
+      if (e.target === modal) closeModal(modal);               // === FIX
+    });
   });
 
   // ปิด Modal ด้วย Esc
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      elements.howToPlayModal.style.display = 'none';
-      elements.leaderboardModal.style.display = 'none';
-      elements.settingsModal.style.display = 'none';
+      closeModal(elements.howToPlayModal);                     // === FIX
+      closeModal(elements.leaderboardModal);                   // === FIX
+      closeModal(elements.settingsModal);                      // === FIX
     }
   });
 

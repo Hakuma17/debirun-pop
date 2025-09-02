@@ -2,16 +2,40 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
+  <!-- viewport-fit=cover เพื่อรองรับ safe-area (รอยบาก/ขอบโค้ง) -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Debirun Pop — Dustarian Mission</title>
 
+  <!-- ฟอนต์ไทย/ไซไฟ -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 
+  <!-- สไตล์หลัก -->
   <link rel="stylesheet" href="style.css">
-  
+
+  <!-- สีของ UI บราวเซอร์มือถือ -->
   <meta name="theme-color" content="#0b1130">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <!-- 
+    FIX 100vh บนมือถือ:
+    คำนวณ 1vh จาก window.innerHeight แล้วเก็บเป็น --vh
+    style.css จะใช้ calc(var(--vh)*100) แทน 100vh เพื่อลดอาการจอเด้ง
+  -->
+  <script>
+    (function () {
+      function setVH() {
+        document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
+      }
+      setVH();
+      window.addEventListener('resize', setVH);
+      window.addEventListener('orientationchange', setVH);
+      // บางเครื่อง (iOS) innerHeight จะเปลี่ยนหลังโหลดเล็กน้อย → อัปเดตซ้ำอีกครั้ง
+      window.addEventListener('load', () => setTimeout(setVH, 100));
+    })();
+  </script>
 </head>
 <body>
   <!-- พื้นหลังเอฟเฟกต์เดิม (ดาว/ดาวตก) -->
@@ -21,16 +45,15 @@
     <div class="meteor m3"></div>
   </div>
 
-  <!-- NEW: ชั้นพื้นหลังอวกาศที่ดึงมาจากออนไลน์ + เครดิตมุมขวาล่าง -->
+  <!-- ชั้นพื้นหลังอวกาศที่ดึงมาจากออนไลน์ + เครดิตมุมขวาล่าง -->
   <div id="spaceRemote" class="space-remote" aria-hidden="true"></div>
   <small id="bgCredit" class="bg-credit" hidden>
     Background: <a class="link-clean" href="#" target="_blank" rel="noopener">—</a>
   </small>
-  <!-- /NEW -->
 
+  <!-- หน้าล็อกอิน/เริ่มเกม -->
   <section class="landing login-container" id="loginContainer">
     <div class="landing-card">
-      
       <div class="brand">
         <h1 class="logo">DEBIRUN <span>POP</span></h1>
         <p class="tagline">พลังของเจ้า… จะถูกใช้ในภารกิจ “ยึดครองจักรวาล”!</p>
@@ -43,7 +66,14 @@
       <div class="join">
         <label for="nameInput">ลงนามหน่วยพิเศษดัสทีเรี่ยน</label>
         <div class="join-row">
-          <input type="text" id="nameInput" placeholder="ENTER AGENT NAME" maxlength="15" autocomplete="off" />
+          <!--
+            maxlength เท่ากับ config.MAX_NAME_LENGTH ใน script.js
+            inputmode & autocapitalize ช่วยให้พิมพ์ชื่อบนมือถือสะดวก/ไม่เปลี่ยนตัวอักษรเอง
+          -->
+          <input
+            type="text" id="nameInput" placeholder="ENTER AGENT NAME"
+            maxlength="15" autocomplete="off"
+            inputmode="text" autocapitalize="off" />
           <button id="startButton">รับภารกิจ</button>
         </div>
       </div>
@@ -56,7 +86,7 @@
         <a class="link-clean" href="https://tiktok.com/@debirunworldend" target="_blank" rel="noopener">TikTok</a>
       </div>
 
-      <!-- ปรับให้ “ขอบคุณ” เด่นแบบไม่สะดุด (จะสไตล์ใน CSS) -->
+      <!-- ขอบคุณแหล่งภาพ/เสียง -->
       <footer class="credits credits-ribbon">
         <strong>ขอบคุณ</strong>
         <span>ภาพประกอบ: <a class="link-clean" href="https://twitter.com/6nnae6" target="_blank" rel="noopener">@6nnae6</a></span>
@@ -65,22 +95,25 @@
     </div>
   </section>
 
+  <!-- หน้าหลักของเกม -->
   <section class="game-container" id="gameContainer" style="display:none;">
     <header class="game-header">
       <div class="player-info">Dustarian: <span id="playerName"></span></div>
       <div class="game-actions">
+        <!-- ปุ่มคู่มือ -->
         <button id="howToPlayButton" class="action-button" aria-label="คู่มือการเล่น">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
         </button>
+        <!-- ปุ่มตารางคะแนน -->
         <button id="leaderboardButton" class="action-button" aria-label="ตารางคะแนน">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17h4v-2.34"/><path d="M8 19h8"/><path d="M12 17.5V14l-3-3 4-3 4 3-3 3"/><path d="M10 9h.01"/><path d="M14 9h.01"/></svg>
         </button>
-        <!-- NEW: ปุ่มตั้งค่าเสียง -->
+        <!-- ปุ่มตั้งค่าเสียง -->
         <button id="settingsButton" class="action-button" aria-label="ตั้งค่าเสียง">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5 15.4a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.27.5.4 1.06.4 1.6s-.13 1.1-.4 1.6Z"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1 1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5 15.4a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.27.5.4 1.06.4 1.6s-.13 1.1-.4 1.6Z"/></svg>
         </button>
-        <!-- /NEW -->
       </div>
+
       <div class="score">POWER: <span id="score">0</span></div>
     </header>
 
@@ -88,7 +121,7 @@
       <img id="debirunImage" src="พื้นหลังใส-1.png" alt="Debirun" draggable="false"/>
     </main>
 
-    <!-- NEW: เพิ่ม data-* สำหรับสเกลความยาก (Lv.1 = base, Lv.ถัดไป = goal * growth^level) -->
+    <!-- สเกลความยาก (Lv.1 = base, Lv.ถัดไป = goal * growth^(level-1)) -->
     <section
       class="coop"
       id="coop"
@@ -102,11 +135,10 @@
         <small>ทุกการคลิก คือการส่งมอบพลังให้ เดบิรุน</small>
       </div>
     </section>
-    <!-- /NEW -->
   </section>
 
-  <!-- Modals -->
-  <div id="howToPlayModal" class="modal-overlay" style="display: none;">
+  <!-- Modals: วิธีเล่น -->
+  <div id="howToPlayModal" class="modal-overlay" role="dialog" aria-modal="true" style="display: none; min-height: calc(var(--vh) * 100);">
     <div class="modal-content">
       <button class="modal-close" id="closeHowToPlay" aria-label="ปิด">&times;</button>
       <h2>MISSION BRIEFING</h2>
@@ -123,7 +155,8 @@
     </div>
   </div>
 
-  <div id="leaderboardModal" class="modal-overlay" style="display: none;">
+  <!-- Modals: ตารางคะแนน -->
+  <div id="leaderboardModal" class="modal-overlay" role="dialog" aria-modal="true" style="display: none; min-height: calc(var(--vh) * 100);">
     <div class="modal-content">
       <button class="modal-close" id="closeLeaderboard" aria-label="ปิด">&times;</button>
       <h2>TOP Players RANKING</h2>
@@ -133,8 +166,8 @@
     </div>
   </div>
 
-  <!-- NEW: Settings Modal -->
-  <div id="settingsModal" class="modal-overlay" style="display:none;">
+  <!-- Modals: ตั้งค่าเสียง -->
+  <div id="settingsModal" class="modal-overlay" role="dialog" aria-modal="true" style="display:none; min-height: calc(var(--vh) * 100);">
     <div class="modal-content">
       <button class="modal-close" id="closeSettings" aria-label="ปิด">&times;</button>
       <h2>ตั้งค่าเสียง</h2>
@@ -178,9 +211,8 @@
       </div>
     </div>
   </div>
-  <!-- /NEW -->
 
-  <!-- NEW: ตัวโหลด “พื้นหลังอวกาศออนไลน์” แบบสุ่มรายวัน + เครดิต -->
+  <!-- พื้นหลังอวกาศออนไลน์แบบสุ่มรายวัน + เครดิต -->
   <script>
     // แหล่งภาพอวกาศสาธารณะ (NASA/ESA/Unsplash – ใช้ได้ฟรี, มีเครดิต)
     // หมายเหตุ: ถ้าต้องการเพิ่ม/เปลี่ยนภาพ แก้ลิสต์นี้ได้เลย
@@ -217,8 +249,8 @@
       }
     })();
   </script>
-  <!-- /NEW -->
 
+  <!-- สคริปต์หลักของเกม (มีฟังก์ชันย่อเลข K/M/B และระบบอื่น ๆ) -->
   <script src="script.js" defer></script>
 </body>
 </html>

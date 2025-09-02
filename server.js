@@ -1,9 +1,9 @@
 // ===================================================================
 // DEBIRUN POP - EXPRESS SERVER (Final Version, Fixed)
-// - รองรับการให้คะแนน, ตารางคะแนน, และคะแนนรวม
-// - เพิ่ม Endpoint สำหรับดึงข้อมูลผู้เล่นรายบุคคล
-// - รองรับฐานข้อมูล Firestore และ SQLite
-// - FIX: แก้ไข Regular Expression ใน sanitizeName
+// - รองรับให้คะแนน, ตารางคะแนน, คะแนนรวม, และดึงข้อมูลผู้เล่นรายบุคคล
+// - รองรับฐานข้อมูล Firestore และ SQLite (better-sqlite3)
+// - FIX: sanitizeName ใช้ Unicode RegEx และ limit ความยาวให้ตรงกับฝั่ง client
+// - NEW (optional): FORCE_HTTPS=1 เพื่อบังคับใช้ HTTPS เมื่อต่อหลัง proxy
 // ===================================================================
 
 "use strict";
@@ -17,43 +17,62 @@ const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// [เพิ่มใหม่] ถ้าอยู่หลัง Proxy (เช่น Render/Fly/Railway) จะได้ IP จริงของผู้ใช้
+// [สำคัญ] ถ้าอยู่หลัง Proxy (เช่น Render/Fly/Railway/Cloudflare) → ได้ IP/Proto จริง
 app.set("trust proxy", true);
 
+// [ออปชัน] บังคับ HTTPS เมื่ออยู่หลัง proxy
+if (process.env.FORCE_HTTPS === "1") {
+  app.use((req, res, next) => {
+    if (req.secure || req.headers["x-forwarded-proto"] === "https") return next();
+    const host = req.get("host");
+    return res.redirect(301, `https://${host}${req.originalUrl}`);
+  });
+}
+
 // --- 2. DATABASE ABSTRACTION LAYER (การจัดการฐานข้อมูล) ---
-// สร้างชั้น Abstraction เพื่อให้โค้ดส่วนอื่นเรียกใช้งานฐานข้อมูลได้ในรูปแบบเดียวกัน
-// โดยไม่ต้องสนใจว่าเบื้องหลังเป็น Firestore หรือ SQLite
+// เขียนผ่าน service เดียวกัน ไม่ต้องสนใจว่าเบื้องหลังคือ Firestore หรือ SQLite
 let dbService;
 
+// ความยาวชื่อสูงสุด (ให้ตรงกับ client)
+const MAX_NAME_LENGTH = 15;
+
 /**
- * ฟังก์ชันสำหรับเริ่มต้นการเชื่อมต่อฐานข้อมูลตาม Environment Variables
- * @returns {object} Object ที่มีเมธอดสำหรับจัดการฐานข้อมูล
+ * เริ่มต้นเชื่อมต่อฐานข้อมูลตาม Environment
+ * FIREBASE_SERVICE_ACCOUNT (JSON string) → Firestore
+ * ไม่ตั้งค่า → SQLite ในไฟล์ local
  */
 function initializeDatabase() {
   const USE_FIREBASE = !!process.env.FIREBASE_SERVICE_ACCOUNT;
 
   if (USE_FIREBASE) {
-    // ---------- ส่วนของการทำงานกับ Firestore ----------
+    // ---------- Firestore ----------
     console.log("Initializing database connection: Firestore");
     const admin = require("firebase-admin");
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
     admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-    
+
     const db = admin.firestore();
     const fv = admin.firestore.FieldValue;
 
     return {
       getLeaderboard: async () => {
-        const snapshot = await db.collection("players").orderBy("score", "desc").limit(50).get();
-        return snapshot.docs.map(doc => ({ name: doc.id, score: doc.data().score || 0 }));
+        const snapshot = await db
+          .collection("players")
+          .orderBy("score", "desc")
+          .limit(50)
+          .get();
+        return snapshot.docs.map((doc) => ({
+          name: doc.id,
+          score: doc.data().score || 0,
+        }));
       },
       addScore: (name, delta) => {
         const playerRef = db.collection("players").doc(name);
         const communityRef = db.collection("counters").doc("community");
-        // ใช้ Transaction เพื่อให้แน่ใจว่าการอัปเดตคะแนนผู้เล่นและคะแนนรวมสำเร็จไปพร้อมกัน
-        return db.runTransaction(async t => {
+        // ใช้ Transaction ให้ผู้เล่น/คะแนนรวมอัปเดตร่วมกัน
+        return db.runTransaction(async (t) => {
           const playerDoc = await t.get(playerRef);
-          const oldScore = playerDoc.exists ? (playerDoc.data().score || 0) : 0;
+          const oldScore = playerDoc.exists ? playerDoc.data().score || 0 : 0;
           t.set(
             playerRef,
             { score: oldScore + delta, updated_at: fv.serverTimestamp() },
@@ -66,31 +85,28 @@ function initializeDatabase() {
         const doc = await db.collection("counters").doc("community").get();
         return doc.exists ? { total: doc.data().total || 0 } : { total: 0 };
       },
-      // [ฟังก์ชันใหม่] ดึงข้อมูลผู้เล่นจากชื่อ
       getPlayer: async (name) => {
         const docRef = db.collection("players").doc(name);
         const doc = await docRef.get();
-        if (!doc.exists) {
-          return null; // คืนค่า null หากไม่พบผู้เล่น
-        }
+        if (!doc.exists) return null;
         return { name: doc.id, score: doc.data().score || 0 };
       },
-      getType: () => 'firestore'
+      getType: () => "firestore",
     };
   } else {
-    // ---------- ส่วนของการทำงานกับ SQLite ----------
+    // ---------- SQLite (local file) ----------
     console.log("Initializing database connection: Local SQLite");
     const Database = require("better-sqlite3");
     const DB_PATH = process.env.DB_PATH || path.join(__dirname, "scores.db");
     const sqlite = new Database(DB_PATH);
 
-    // [เพิ่มใหม่] ปรับแต่ง PRAGMA ให้เหมาะกับงานเขียนอ่านเบาๆ และไฟล์เดี่ยว
+    // ปรับ PRAGMA ให้เหมาะกับงานเขียน/อ่านเบา ๆ
     try {
       sqlite.pragma("journal_mode = WAL");
       sqlite.pragma("synchronous = NORMAL");
     } catch (_) {}
 
-    // สร้าง Table หากยังไม่มี
+    // schema
     sqlite.exec(`
       CREATE TABLE IF NOT EXISTS players (
         id INTEGER PRIMARY KEY,
@@ -106,7 +122,7 @@ function initializeDatabase() {
       INSERT INTO counters (id, total) VALUES (1, 0) ON CONFLICT(id) DO NOTHING;
     `);
 
-    // เตรียม Statement ไว้ล่วงหน้าเพื่อประสิทธิภาพที่ดีกว่า
+    // คำสั่งเตรียมไว้ล่วงหน้า
     const getLeaderboardStmt = sqlite.prepare(
       "SELECT name, score FROM players ORDER BY score DESC, updated_at ASC LIMIT 50"
     );
@@ -115,24 +131,29 @@ function initializeDatabase() {
     );
     const getPlayerStmt = sqlite.prepare(
       "SELECT name, score FROM players WHERE name = ?"
-    ); // [Statement ใหม่]
+    );
     const addScoreTransaction = sqlite.transaction((name, delta) => {
-      sqlite.prepare(
-        "INSERT INTO players (name, score) VALUES (?, 0) ON CONFLICT(name) DO NOTHING"
-      ).run(name);
-      sqlite.prepare(
-        "UPDATE players SET score = score + ?, updated_at = CURRENT_TIMESTAMP WHERE name = ?"
-      ).run(delta, name);
-      sqlite.prepare("UPDATE counters SET total = total + ? WHERE id = 1").run(delta);
+      sqlite
+        .prepare(
+          "INSERT INTO players (name, score) VALUES (?, 0) ON CONFLICT(name) DO NOTHING"
+        )
+        .run(name);
+      sqlite
+        .prepare(
+          "UPDATE players SET score = score + ?, updated_at = CURRENT_TIMESTAMP WHERE name = ?"
+        )
+        .run(delta, name);
+      sqlite
+        .prepare("UPDATE counters SET total = total + ? WHERE id = 1")
+        .run(delta);
     });
 
     return {
       getLeaderboard: async () => getLeaderboardStmt.all(),
       addScore: async (name, delta) => addScoreTransaction(name, delta),
       getCommunityTotal: async () => getCommunityStmt.get() || { total: 0 },
-      // [ฟังก์ชันใหม่] ดึงข้อมูลผู้เล่นจากชื่อ
       getPlayer: async (name) => getPlayerStmt.get(name) || null,
-      getType: () => 'sqlite'
+      getType: () => "sqlite",
     };
   }
 }
@@ -140,44 +161,46 @@ function initializeDatabase() {
 // เริ่มต้นการเชื่อมต่อฐานข้อมูล
 dbService = initializeDatabase();
 
+// --- 3. MIDDLEWARES ---
+app.use(compression()); // บีบอัด response
 
-// --- 3. MIDDLEWARES (ซอฟต์แวร์ตัวกลาง) ---
-app.use(compression()); // บีบอัด Response เพื่อลดขนาดและเพิ่มความเร็ว
+// จำกัดขนาด JSON และ parse body
+app.use(express.json({ limit: "128kb" }));
 
-// [ปรับปรุง] จำกัดขนาด JSON เพื่อกันสแปม/ผิดพลาด และ parse JSON body
-app.use(express.json({ limit: "128kb" })); // แปลง Request body ที่เป็น JSON ให้อ่านได้
-
-// ตั้งค่า CORS หากมีการเรียก API จากโดเมนอื่น
+// ตั้งค่า CORS โดยผ่าน env: CORS_ORIGIN="https://a.com,https://b.com"
 if (process.env.CORS_ORIGIN) {
-  const origins = process.env.CORS_ORIGIN.split(",").map(s => s.trim());
+  const origins = process.env.CORS_ORIGIN.split(",").map((s) => s.trim());
   app.use(cors({ origin: origins }));
-  // [เพิ่มใหม่] รองรับ preflight สำหรับทุกเส้นทาง (เช่น POST /score)
-  app.options("*", cors({ origin: origins }));
+  app.options("*", cors({ origin: origins })); // preflight
 }
 
-// ให้บริการไฟล์ Static (เช่น index.html, style.css) จากโฟลเดอร์ public
-app.use(express.static(path.join(__dirname, "public"), { maxAge: "1h" }));
+// ให้บริการไฟล์ Static จากโฟลเดอร์ /public
+app.use(
+  express.static(path.join(__dirname, "public"), {
+    maxAge: "1h",
+    // ใช้ ETag/Last-Modified ของ Express ตามปกติ
+  })
+);
 
-
-// --- 4. UTILS & RATE LIMITING (ฟังก์ชันเสริมและระบบป้องกัน) ---
+// --- 4. UTILS & RATE LIMITING ---
 /**
- * [FIXED] ทำความสะอาดชื่อผู้ใช้: แก้ไข Regular Expression ที่ผิดพลาด
- * @param {string} str - ชื่อที่รับเข้ามา
- * @returns {string} - ชื่อที่ทำความสะอาดแล้ว
+ * [FIXED] sanitizeName: อนุญาตตัวอักษรทุกภาษา \p{L}, ตัวเลข \p{N}, ขีดล่าง _, เว้นวรรค, และขีดกลาง -
+ * วาง - ไว้ท้าย character class กันตีความเป็นช่วง
  */
 function sanitizeName(str) {
-  // แก้ไขโดยย้าย - (hyphen) ไปไว้ท้ายสุดของ character class เพื่อให้ไม่ถูกตีความว่าเป็น "range"
-  // และลบ \\ ที่ซ้ำซ้อนออก
-  return String(str || "").replace(/[^\p{L}\p{N}_ -]/gu, "").trim().slice(0, 15);
+  return String(str || "")
+    .replace(/[^\p{L}\p{N}_ -]/gu, "")
+    .trim()
+    .slice(0, MAX_NAME_LENGTH);
 }
 
-// Rate Limiting: ป้องกันการยิง Request ถี่เกินไปจาก IP เดียว
+// Rate Limiter แบบเบา ๆ สำหรับ /score เท่านั้น (กันยิงรัวจากไอพีเดียว)
 const rateLimitStore = new Map();
 const RATE_LIMIT_WINDOW_MS = 1000;
 const RATE_LIMIT_MAX_REQUESTS = 40;
 
 function rateLimiter(req, res, next) {
-  if (req.path !== "/score") return next(); // ใช้ Rate Limit เฉพาะ Endpoint ที่สำคัญ
+  if (req.path !== "/score") return next();
 
   const ip =
     req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
@@ -197,24 +220,21 @@ function rateLimiter(req, res, next) {
   if (entry.count > RATE_LIMIT_MAX_REQUESTS) {
     return res.status(429).json({ ok: false, message: "Too many requests" });
   }
-
   next();
 }
 
-// ล้าง Rate Limit Store เป็นระยะเพื่อไม่ให้หน่วยความจำเต็ม
+// ล้าง store เป็นระยะ (กันกินแรม)
 setInterval(() => {
   const now = Date.now();
   for (const [ip, entry] of rateLimitStore.entries()) {
     if (now - entry.timestamp > RATE_LIMIT_WINDOW_MS * 60) {
-      // ล้าง IP ที่ไม่ active เกิน 1 นาที
       rateLimitStore.delete(ip);
     }
   }
 }, 10 * 60 * 1000);
 
-
-// --- 5. API ROUTES (เส้นทาง API) ---
-// ดึงข้อมูลตารางคะแนน
+// --- 5. API ROUTES ---
+// 5.1 ตารางคะแนน
 app.get("/leaderboard", async (_req, res) => {
   try {
     const data = await dbService.getLeaderboard();
@@ -225,7 +245,7 @@ app.get("/leaderboard", async (_req, res) => {
   }
 });
 
-// [ENDPOINT ใหม่] ดึงข้อมูลผู้เล่นรายคน
+// 5.2 ข้อมูลผู้เล่นรายบุคคล
 app.get("/player/:name", async (req, res) => {
   try {
     const name = sanitizeName(req.params.name);
@@ -233,23 +253,20 @@ app.get("/player/:name", async (req, res) => {
       return res.status(400).json({ ok: false, message: "Invalid name" });
     }
     const data = await dbService.getPlayer(name);
-    if (data) {
-      res.json(data);
-    } else {
-      // ส่ง 404 Not Found เมื่อไม่พบผู้เล่น
-      res.status(404).json({ ok: false, message: "Player not found" });
-    }
+    if (data) return res.json(data);
+    return res.status(404).json({ ok: false, message: "Player not found" });
   } catch (error) {
     console.error(`Error fetching player ${req.params.name}:`, error);
     res.status(500).json({ ok: false, message: "Internal Server Error" });
   }
 });
 
-// เพิ่ม/อัปเดตคะแนน
+// 5.3 เพิ่ม/อัปเดตคะแนน
 app.post("/score", rateLimiter, async (req, res) => {
   try {
     const { name, delta } = req.body || {};
     const cleanName = sanitizeName(name);
+    // delta: integer 0..500 (กันยิงทีละเยอะเกิน)
     const validatedDelta = Math.min(Math.max(parseInt(delta, 10) || 0, 0), 500);
 
     if (!cleanName || validatedDelta <= 0) {
@@ -264,7 +281,7 @@ app.post("/score", rateLimiter, async (req, res) => {
   }
 });
 
-// ดึงข้อมูลคะแนนรวม
+// 5.4 คะแนนรวม (Community)
 app.get("/community", async (_req, res) => {
   try {
     const data = await dbService.getCommunityTotal();
@@ -275,13 +292,16 @@ app.get("/community", async (_req, res) => {
   }
 });
 
-// Health Check Endpoint: สำหรับตรวจสอบว่า Server ทำงานอยู่หรือไม่
+// 5.5 Health Check
 app.get("/healthz", (_req, res) => {
-  res.json({ ok: true, database: dbService.getType(), timestamp: new Date().toISOString() });
+  res.json({
+    ok: true,
+    database: dbService.getType(),
+    timestamp: new Date().toISOString(),
+  });
 });
 
-
-// --- 6. SERVER STARTUP (การเริ่มเซิร์ฟเวอร์) ---
+// --- 6. SERVER STARTUP ---
 app.listen(PORT, () => {
   console.log(`Debirun Pop server listening on http://localhost:${PORT}`);
   console.log(`Database in use: ${dbService.getType()}`);
