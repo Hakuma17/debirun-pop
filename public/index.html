@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+  
   <link rel="stylesheet" href="style.css">
   <meta name="theme-color" content="#0b1130">
 </head>
@@ -24,7 +25,7 @@
     <div class="landing-card">
       <div class="brand">
         <h1 class="logo">DEBIRUN <span>POP</span></h1>
-        <p class="tagline">ภารกิจพิทักษ์จักรวาลของ <strong>ดัสเรี่ยน</strong> ✨ ไม่มีการแข่งขัน มีแต่กำลังใจ</p>
+        <p class="tagline">พลังของเจ้า... จะถูกใช้ในภารกิจ**ยึดครอง**จักรวาล!</p>
       </div>
 
       <figure class="hero">
@@ -32,15 +33,15 @@
       </figure>
 
       <div class="join">
-        <label for="nameInput">กรอกชื่อเอเจนท์</label>
+        <label for="nameInput">AGENT IDENTIFICATION</label>
         <div class="join-row">
-          <input type="text" id="nameInput" placeholder="เช่น Hakuma" maxlength="15" autocomplete="off" />
-          <button id="startButton">เริ่มภารกิจ</button>
+          <input type="text" id="nameInput" placeholder="ENTER AGENT NAME" maxlength="15" autocomplete="off" />
+          <button id="startButton">INITIATE MISSION</button>
         </div>
       </div>
 
       <div class="socials">
-        <span>ติดตาม:</span>
+        <span>ติดตามเดบิรุน:</span>
         <a href="https://youtube.com/@debirunworldend?si=CWReY3AJ_qvl6nfs" target="_blank" rel="noopener">YouTube</a>
         <a href="https://twitter.com/DebirunWorldEnd" target="_blank" rel="noopener">Twitter/X</a>
         <a href="https://facebook.com/DebirunWorldEnd" target="_blank" rel="noopener">Facebook</a>
@@ -58,8 +59,8 @@
   <!-- หน้าเกม -->
   <section class="game-container" id="gameContainer" style="display:none;">
     <header class="game-header">
-      <div class="player-info">Agent: <span id="playerName"></span></div>
-      <div class="score">Your Score: <span id="score">0</span></div>
+      <div class="player-info">AGENT ID: <span id="playerName"></span></div>
+      <div class="score">POWER OUTPUT: <span id="score">0</span></div>
     </header>
 
     <main class="main-game">
@@ -74,15 +75,14 @@
 
     <!-- ภารกิจร่วมมือ (Co-op) -->
     <section class="coop" id="coop">
-      <h2>DUSTARIAN MISSION — พลังดาวของดัสเรี่ยน</h2>
+      <h2>DUSTARIAN MISSION — พลังแห่งดวงดาว</h2>
       <div class="bar"><div class="fill" id="coopFill" style="width:0%"></div></div>
       <div class="coop-text">
         <span id="coopText">0 / 1,000 • Lv.1</span>
-        <small>ทุกการแตะคือกำลังใจให้เดบิรุน ✨</small>
+        <small>ทุกการคลิก คือการส่งมอบพลังให้แก่ท่าน ผ.บ... </small>
       </div>
     </section>
 
-    <!-- ลีดเดอร์บอร์ดเดิม (เก็บไว้เผื่ออนาคต; ซ่อนด้วย CSS ได้) -->
     <aside class="leaderboard">
       <h2>TOP AGENTS</h2>
       <ul id="scoreboard"></ul>
