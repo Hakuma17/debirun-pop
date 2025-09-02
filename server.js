@@ -1,9 +1,12 @@
 // ===================================================================
-// DEBIRUN POP - EXPRESS SERVER (Final Version)
+// DEBIRUN POP - EXPRESS SERVER (Final Version, Fixed)
 // - รองรับการให้คะแนน, ตารางคะแนน, และคะแนนรวม
 // - เพิ่ม Endpoint สำหรับดึงข้อมูลผู้เล่นรายบุคคล
 // - รองรับฐานข้อมูล Firestore และ SQLite
+// - FIX: แก้ไข Regular Expression ใน sanitizeName
 // ===================================================================
+
+"use strict";
 
 // --- 1. INITIALIZATION (การนำเข้า library ที่จำเป็น) ---
 const express = require("express");
@@ -158,12 +161,14 @@ app.use(express.static(path.join(__dirname, "public"), { maxAge: "1h" }));
 
 // --- 4. UTILS & RATE LIMITING (ฟังก์ชันเสริมและระบบป้องกัน) ---
 /**
- * ทำความสะอาดชื่อผู้ใช้: อนุญาตเฉพาะอักขระที่ปลอดภัยและจำกัดความยาว
+ * [FIXED] ทำความสะอาดชื่อผู้ใช้: แก้ไข Regular Expression ที่ผิดพลาด
  * @param {string} str - ชื่อที่รับเข้ามา
  * @returns {string} - ชื่อที่ทำความสะอาดแล้ว
  */
 function sanitizeName(str) {
-  return String(str || "").replace(/[^\p{L}\p{N}_\\- ]/gu, "").trim().slice(0, 15);
+  // แก้ไขโดยย้าย - (hyphen) ไปไว้ท้ายสุดของ character class เพื่อให้ไม่ถูกตีความว่าเป็น "range"
+  // และลบ \\ ที่ซ้ำซ้อนออก
+  return String(str || "").replace(/[^\p{L}\p{N}_ -]/gu, "").trim().slice(0, 15);
 }
 
 // Rate Limiting: ป้องกันการยิง Request ถี่เกินไปจาก IP เดียว

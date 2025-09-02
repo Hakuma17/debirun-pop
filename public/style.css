@@ -1,9 +1,6 @@
 /* ===================================================================
-// DEBIRUN POP - STYLESHEET V3 (Final)
-// - ปรับปรุงฟอนต์ให้อ่านง่ายขึ้น (Kanit)
-// - เพิ่ม Text Shadow เพื่อความคมชัด
-// - แก้ไขสไตล์ส่วน Credits และลิงก์
-// - เพิ่มสไตล์สำหรับ Modal (ตารางคะแนน, คู่มือ)
+// DEBIRUN POP - STYESHEET V3 (Final, Fixed)
+// - แก้ไขสไตล์ Volume Slider ให้แสดงแถบสีได้ถูกต้อง
 // =================================================================== */
 
 /* --- 1. THEME & COLOR PALETTE --- */
@@ -56,7 +53,6 @@ h1, h2, .player-info, .score, button, .join label { font-family: "Orbitron", san
 h1, h2 { letter-spacing: .2em; text-shadow: var(--glow-hero), var(--text-shadow); }
 
 /* --- 3. REMOTE SPACE BACKGROUND (โหลดภาพอวกาศออนไลน์มาวางเป็นเลเยอร์ล่าง) --- */
-/* โค้ดส่วนนี้ “เพิ่มใหม่” เพื่อให้บรรยากาศอวกาศชัดขึ้น */
 .space-remote{
   position:fixed; inset:0; z-index:-2; pointer-events:none;
   background: #040816 center/cover no-repeat;
@@ -75,7 +71,6 @@ h1, h2 { letter-spacing: .2em; text-shadow: var(--glow-hero), var(--text-shadow)
 .bg-credit .link-clean:hover{ border-bottom-color:rgba(255,255,255,.35); }
 
 /* --- 4. COSMIC BACKGROUND & METEORS (พื้นหลังอนุภาค/ดาวตก) --- */
-/* ปรับให้ “ไม่ขยับ” ตามที่ขอ เพื่อลดภาระเครื่อง */
 .cosmos { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
 .cosmos::before, .cosmos::after {
   content: ""; position: absolute; inset: -20%;
@@ -89,9 +84,6 @@ h1, h2 { letter-spacing: .2em; text-shadow: var(--glow-hero), var(--text-shadow)
 }
 .cosmos::after { opacity: .18; filter: blur(.4px); }
 .meteor{ display:none; } /* ปิดดาวตกเพื่อลดภาระ */
-
-@keyframes starScroll { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-600px, -300px, 0); } }
-@keyframes shoot { 0%, 70% { opacity: 0; transform: translate3d(0, 0, 0); } 72% { opacity: 1; } 100% { opacity: 0; transform: translate3d(-700px, 320px, 0); } }
 
 /* --- 5. COMMON UI ELEMENTS (ปุ่ม, input ทั่วไป) --- */
 input, button { font: inherit; border: none; border-radius: 12px; padding: 14px 18px; transition: all .2s; }
@@ -222,25 +214,34 @@ button:active { transform: scale(.96) translateY(0); filter: brightness(1); }
   --track-height: 6px;
 }
 
+/* เทคนิคนี้จะใช้ background-image ไล่สีบนตัว input range เอง
+  โดยคำนวณความกว้างของสีจาก CSS variable `--progress` ที่เราจะกำหนดค่าจาก JavaScript
+*/
 input[type="range"].volume {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: var(--thumb-size);
-  background: transparent;
+  height: var(--thumb-size); /* ทำให้พื้นที่กดเมาส์สูงเท่าปุ่มกลมๆ */
+  background: transparent; /* ปิดพื้นหลังเดิม */
   cursor: pointer;
-  --progress: 100%;
+  
+  --progress: 100%; /* ค่าเริ่มต้น (JS จะอัปเดตค่านี้) */
+  
+  /* สร้างแถบสีด้วย background-image */
   background-image: linear-gradient(90deg, 
     var(--acc-demon) 0%, 
     var(--acc-demon) var(--progress), 
-    transparent var(--progress), 
+    transparent var(--progress), /* ส่วนที่เหลือให้โปร่งใส */
     transparent 100%
   );
+  
+  /* ปรับขนาดและตำแหน่งของ background ให้พอดีกับ "ร่อง" ของ slider */
   background-size: calc(100% - var(--thumb-size)) var(--track-height);
   background-position: calc(var(--thumb-size) / 2) center;
   background-repeat: no-repeat;
 }
 
+/* สไตล์ปุ่มกลมๆ (Thumb) - สำหรับ Chrome/Edge/Safari */
 input[type="range"].volume::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -250,17 +251,17 @@ input[type="range"].volume::-webkit-slider-thumb {
   border-radius: 50%;
   border: 2px solid var(--bg);
   box-shadow: var(--glow-demon);
+  /* จัดตำแหน่งปุ่มกลมให้อยู่กลางร่องพอดี */
   margin-top: calc((var(--track-height) - var(--thumb-size)) / 2);
 }
 
+/* สไตล์ร่อง (Track) - สำหรับ Chrome/Edge/Safari */
 input[type="range"].volume::-webkit-slider-runnable-track {
   width: 100%;
   height: var(--track-height);
   background: #1a214f;
   border-radius: 999px;
   box-shadow: inset 0 1px 3px rgba(0,0,0,.4);
-  padding: 0; /* ไม่ต้องใช้ padding ในวิธีนี้ */
-  box-sizing: border-box;
 }
 /* =========================================================
 // END: โค้ดแก้ไขแถบเลื่อนระดับเสียง
