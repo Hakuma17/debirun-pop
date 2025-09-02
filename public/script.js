@@ -1,264 +1,355 @@
-// --- Elements ---
-const loginContainer = document.getElementById('loginContainer');
-const gameContainer  = document.getElementById('gameContainer');
-const startButton    = document.getElementById('startButton');
-const nameInput      = document.getElementById('nameInput');
+// ===================================================================
+// DEBIRUN POP - SCRIPT
+// ===================================================================
 
-const debirunImage   = document.getElementById('debirunImage');
-const scoreDisplay   = document.getElementById('score');
-const playerNameDisplay = document.getElementById('playerName');
-const scoreboard     = document.getElementById('scoreboard');
+// --- DOM ELEMENTS ---
+// ส่วนที่เชื่อมต่อกับ HTML Elements
+const elements = {
+  loginContainer: document.getElementById('loginContainer'),
+  gameContainer: document.getElementById('gameContainer'),
+  startButton: document.getElementById('startButton'),
+  nameInput: document.getElementById('nameInput'),
+  debirunImage: document.getElementById('debirunImage'),
+  scoreDisplay: document.getElementById('score'),
+  playerNameDisplay: document.getElementById('playerName'),
+  scoreboard: document.getElementById('scoreboard'),
+  coopFill: document.getElementById('coopFill'),
+  coopText: document.getElementById('coopText'),
+};
 
-// ===== Co-op meter elements (ใหม่) =====
-const coopFill = document.getElementById('coopFill');
-const coopText = document.getElementById('coopText');
-const GOAL = 1000;           // แต้มต่อ 1 เลเวลของพลังรวม (ปรับได้)
-let lastLevel = 0;
+// --- CONFIG & CONSTANTS ---
+// ค่าคงที่และการตั้งค่าต่างๆ ของเกม
+const config = {
+  // API Endpoint
+  API_URL: (() => {
+    const fromQuery = new URLSearchParams(location.search).get('api');
+    if (fromQuery) return fromQuery.replace(/\/$/, '');
+    if (window.API_URL) return String(window.API_URL).replace(/\/$/, '');
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') return 'http://localhost:3000';
+    return location.origin;
+  })(),
 
-// --- Assets ---
-const IMG1 = 'พื้นหลังใส-1.png';
-const IMG2 = 'พื้นหลังใส-2.png';
-const popSound      = new Audio('pop1.mp3');       // คลิกปกติ
-const rapidPopSound = new Audio('จิ้มรั่วๆ.mp3'); // เมื่อครบสตรีค
-const idleSound     = new Audio('เชิญชวนจิ้มน่าจอ.mp3');
+  // Image assets
+  IMG_NORMAL: 'พื้นหลังใส-1.png',
+  IMG_POPPED: 'พื้นหลังใส-2.png',
 
-[popSound, rapidPopSound, idleSound].forEach(a => { a.preload = 'auto'; a.loop = false; });
-idleSound.volume = 0.55;
-rapidPopSound.volume = 0.6;
+  // Local Storage key
+  LOCAL_STORAGE_KEY: 'debirun_name',
 
-// --- Config ---
-let score = 0;
-let username = '';
-const API_URL = (() => {
-  const fromQuery = new URLSearchParams(location.search).get('api');
-  if (fromQuery) return fromQuery.replace(/\/$/, '');
-  if (window.API_URL) return String(window.API_URL).replace(/\/$/, '');
-  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') return 'http://localhost:3000';
-  return location.origin;
-})();
+  // Name validation
+  MIN_NAME_LENGTH: 3,
+  MAX_NAME_LENGTH: 15,
 
-// ส่งคะแนนเป็น delta ทุก ๆ FLUSH_MS
-const clickQueue = { pending: 0 };
-const FLUSH_MS = 1500;
+  // Co-op Mission
+  COOP_GOAL_PER_LEVEL: 1000,
 
-// ---------- เงื่อนไข “กด 30 ครั้งติดกัน” ----------
-const STREAK_TARGET   = 30;    // ครบ 30 ครั้งติดกัน
-const STREAK_RESET_MS = 1500;  // เว้นเกินนี้ถือว่าขาดตอน
-let streakCount = 0;
-let lastClickAt = 0;
-// ----------------------------------------------
+  // Score submission interval (ms)
+  FLUSH_INTERVAL_MS: 1500,
 
-// --- Idle prompt: ครั้งแรกหลัง 5 วิ แล้วซ้ำทุก 10 วิ ถ้าไม่กด ---
-let idleFirstTimer, idleRepeatTimer;
-const IDLE_FIRST_MS  = 5000;
-const IDLE_REPEAT_MS = 10000;
-let isIdlePlaying = false;
+  // Streak conditions
+  STREAK_TARGET: 30,      // จำนวนคลิกที่ต้องการสำหรับสตรีค
+  STREAK_RESET_MS: 1500, // เวลาที่เว้นว่างก่อนรีเซ็ตสตรีค
 
-idleSound.addEventListener('ended', () => { isIdlePlaying = false; });
+  // Idle sound timing (ms)
+  IDLE_FIRST_WAIT_MS: 5000,
+  IDLE_REPEAT_INTERVAL_MS: 10000,
+};
 
-function playIdleOnce() {
-  if (document.hidden || isIdlePlaying) return;
-  isIdlePlaying = true;
-  try {
-    idleSound.currentTime = 0;
-    idleSound.play().catch(() => { isIdlePlaying = false; });
-  } catch { isIdlePlaying = false; }
-}
-
-function scheduleIdle() {
-  clearTimeout(idleFirstTimer);
-  clearInterval(idleRepeatTimer);
-  idleFirstTimer = setTimeout(() => {
-    playIdleOnce();
-    idleRepeatTimer = setInterval(playIdleOnce, IDLE_REPEAT_MS);
-  }, IDLE_FIRST_MS);
-}
-
-function stopIdleSound({ clearTimers = false } = {}) {
-  try { idleSound.pause(); } catch {}
-  isIdlePlaying = false;
-  if (clearTimers) {
-    clearTimeout(idleFirstTimer);
-    clearInterval(idleRepeatTimer);
+// --- AUDIO ASSETS ---
+// จัดการไฟล์เสียงและตั้งค่าเริ่มต้น
+const sounds = {
+  pop: new Audio('pop1.mp3'),
+  rapidPop: new Audio('จิ้มรั่วๆ.mp3'),
+  idle: new Audio('เชิญชวนจิ้มน่าจอ.mp3'),
+  
+  init() {
+    this.pop.preload = 'auto';
+    this.rapidPop.preload = 'auto';
+    this.idle.preload = 'auto';
+    this.rapidPop.volume = 0.6;
+    this.idle.volume = 0.55;
+    this.idle.addEventListener('ended', () => { gameState.isIdlePlaying = false; });
   }
-}
+};
+sounds.init();
 
-// --- Preload images ---
-async function preloadImages(...urls) {
-  const tasks = urls.map(u => {
-    const img = new Image();
-    img.src = u;
-    return new Promise(r => { img.onload = r; });
-  });
-  await Promise.allSettled(tasks);
-}
+// --- GAME STATE ---
+// รวบรวมสถานะของเกมที่เปลี่ยนแปลงตลอดเวลาไว้ใน Object เดียว
+const gameState = {
+  score: 0,
+  username: '',
+  lastLevel: 0,
+  streakCount: 0,
+  lastClickAt: 0,
+  isPressed: false,
+  isIdlePlaying: false,
+  clickQueue: { pending: 0 },
+  idleTimers: { first: null, repeat: null },
+  gameTimers: { flush: null, community: null, leaderboard: null },
+  leaderboardAbortController: new AbortController(),
+};
 
-// --- Leaderboard (กันซ้อน request) ---
-let lbAbortController = new AbortController();
 
-async function updateLeaderboard() {
-  lbAbortController.abort();
-  lbAbortController = new AbortController();
+// ===================================================================
+// API & SERVER COMMUNICATION
+// ===================================================================
+
+/** ส่งคะแนนที่สะสมไว้ไปยัง Server */
+async function flushScoreQueue() {
+  if (!gameState.username || gameState.clickQueue.pending <= 0) return;
+
+  const delta = gameState.clickQueue.pending;
+  gameState.clickQueue.pending = 0; // Reset queue immediately
+
   try {
-    const res = await fetch(`${API_URL}/leaderboard`, { signal: lbAbortController.signal });
-    const data = await res.json();
-    if (!scoreboard) return; // เผื่อหน้าไม่มี
-    scoreboard.innerHTML = '';
-    data.forEach(p => {
-      const li = document.createElement('li');
-      li.innerHTML = `<span>${p.name}</span> <span>${p.score}</span>`;
-      if (p.name === username) li.classList.add('me');
-      scoreboard.appendChild(li);
-    });
-  } catch (e) {
-    if (e.name !== 'AbortError') console.error('Leaderboard update failed:', e);
-  }
-}
-
-// --- Utils ---
-function sanitizeName(str) {
-  const cleaned = str.replace(/[^\p{L}\p{N}_\- ]/gu, '').trim();
-  return cleaned.slice(0, 15);
-}
-
-// ===== Co-op: อัปเดตพลังรวมของดัสเรี่ยน (ใหม่) =====
-async function updateCommunity() {
-  if (!coopFill || !coopText) return; // ถ้าไม่มี element ก็ข้าม
-  try {
-    const res = await fetch(`${API_URL}/community`);
-    const { total = 0 } = await res.json();
-    const level = Math.floor(total / GOAL) + 1;
-    const inLevel = total % GOAL;
-    const pct = Math.min(100, (inLevel / GOAL) * 100);
-
-    coopFill.style.width = `${pct}%`;
-    coopText.textContent = `${inLevel.toLocaleString()} / ${GOAL.toLocaleString()} • Lv.${level}`;
-
-    if (level > lastLevel) {
-      // เอฟเฟกต์เลเวลอัปเล็ก ๆ
-      document.body.animate([{filter:'brightness(1)'},{filter:'brightness(1.25)'},{filter:'brightness(1)'}],
-                            {duration:700, easing:'ease'});
-      lastLevel = level;
-    }
-  } catch (e) {
-    // เงียบไว้ ไม่ต้องรบกวนผู้เล่น
-  }
-}
-
-// --- Score flusher ---
-async function flushQueue() {
-  if (!username || clickQueue.pending <= 0) return;
-  const delta = clickQueue.pending;
-  clickQueue.pending = 0;
-  try {
-    await fetch(`${API_URL}/score`, {
+    await fetch(`${config.API_URL}/score`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: username, delta })
+      body: JSON.stringify({ name: gameState.username, delta })
     });
-    // อัปเดตมิเตอร์รวมทันทีหลังส่งสำเร็จ
-    updateCommunity();
-  } catch (e) {
-    clickQueue.pending += delta; // เก็บแต้มคืนถ้าส่งไม่สำเร็จ
-    console.error('flush failed', e);
+    // เมื่อส่งสำเร็จ ให้อัปเดตมิเตอร์รวมทันทีเพื่อการตอบสนองที่รวดเร็ว
+    updateCommunityMeter();
+  } catch (error) {
+    console.error('Failed to flush score queue:', error);
+    gameState.clickQueue.pending += delta; // Add score back if fetch failed
   }
 }
 
-// --- Game flow ---
-startButton.addEventListener('click', async () => {
-  const clean = sanitizeName(nameInput.value);
-  if (clean.length < 3) {
-    alert('กรุณากรอกชื่อเอเจนท์ 3–15 ตัวอักษร');
-    return;
+/** ดึงข้อมูล Leaderboard จาก Server */
+async function updateLeaderboard() {
+  gameState.leaderboardAbortController.abort(); // Cancel previous fetch request
+  gameState.leaderboardAbortController = new AbortController();
+
+  try {
+    const res = await fetch(`${config.API_URL}/leaderboard`, { signal: gameState.leaderboardAbortController.signal });
+    const data = await res.json();
+    
+    if (!elements.scoreboard) return;
+    elements.scoreboard.innerHTML = ''; // Clear old board
+    
+    data.forEach(player => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span>${player.name}</span> <span>${player.score}</span>`;
+      if (player.name === gameState.username) {
+        li.classList.add('me');
+      }
+      elements.scoreboard.appendChild(li);
+    });
+  } catch (error) {
+    if (error.name !== 'AbortError') {
+      console.error('Leaderboard update failed:', error);
+    }
   }
-  username = clean;
-  playerNameDisplay.textContent = username;
-  localStorage.setItem('debirun_name', username);
+}
 
-  // ปลดล็อกเสียงบนมือถือ
-  try { await popSound.play(); popSound.pause(); } catch {}
+/** ดึงข้อมูลคะแนนรวม (Co-op) จาก Server */
+async function updateCommunityMeter() {
+  if (!elements.coopFill || !elements.coopText) return;
 
-  await preloadImages(IMG1, IMG2);
+  try {
+    const res = await fetch(`${config.API_URL}/community`);
+    const { total = 0 } = await res.json();
+    
+    const level = Math.floor(total / config.COOP_GOAL_PER_LEVEL) + 1;
+    const scoreInLevel = total % config.COOP_GOAL_PER_LEVEL;
+    const percentage = Math.min(100, (scoreInLevel / config.COOP_GOAL_PER_LEVEL) * 100);
 
-  loginContainer.style.display = 'none';
-  gameContainer.style.display  = 'flex';
+    elements.coopFill.style.width = `${percentage}%`;
+    elements.coopText.textContent = `${scoreInLevel.toLocaleString()} / ${config.COOP_GOAL_PER_LEVEL.toLocaleString()} • Lv.${level}`;
 
-  scheduleIdle();
-  setInterval(flushQueue, FLUSH_MS);
+    if (level > gameState.lastLevel) {
+      // ใช้เอฟเฟกต์ "Screen Shake" ที่เพิ่มใน CSS
+      document.body.classList.add('level-up');
+      setTimeout(() => document.body.classList.remove('level-up'), 700);
+      gameState.lastLevel = level;
+    }
+  } catch (error) {
+    // Fail silently to not disturb the player
+  }
+}
 
-  // อัปเดตทั้งมิเตอร์ Co-op และ (ถ้าต้อง) leaderboard
-  setInterval(updateCommunity, 3000);
-  updateCommunity();
 
-  setInterval(updateLeaderboard, 5000);
+// ===================================================================
+// GAME LOGIC & UI
+// ===================================================================
+
+/** จัดการเสียง Idle (เสียงเชิญชวนให้คลิก) */
+function scheduleIdleSound() {
+  clearTimeout(gameState.idleTimers.first);
+  clearInterval(gameState.idleTimers.repeat);
+
+  const playOnce = () => {
+    if (document.hidden || gameState.isIdlePlaying) return;
+    gameState.isIdlePlaying = true;
+    sounds.idle.currentTime = 0;
+    sounds.idle.play().catch(() => { gameState.isIdlePlaying = false; });
+  };
+
+  gameState.idleTimers.first = setTimeout(() => {
+    playOnce();
+    gameState.idleTimers.repeat = setInterval(playOnce, config.IDLE_REPEAT_INTERVAL_MS);
+  }, config.IDLE_FIRST_WAIT_MS);
+}
+
+/** หยุดเสียง Idle */
+function stopIdleSound(clearTimers = false) {
+  sounds.idle.pause();
+  gameState.isIdlePlaying = false;
+  if (clearTimers) {
+    clearTimeout(gameState.idleTimers.first);
+    clearInterval(gameState.idleTimers.repeat);
+  }
+}
+
+/** โหลดรูปภาพล่วงหน้าเพื่อลดการกระตุก */
+async function preloadImages(...urls) {
+  const tasks = urls.map(url => new Promise(resolve => {
+    const img = new Image();
+    img.src = url;
+    img.onload = resolve;
+    img.onerror = resolve; // Resolve even on error to not block the game
+  }));
+  await Promise.all(tasks);
+}
+
+/** ทำความสะอาดชื่อผู้ใช้ */
+function sanitizeName(str) {
+  // Regex to keep letters, numbers, underscore, hyphen, space
+  const cleaned = String(str || "").replace(/[^\p{L}\p{N}_\- ]/gu, "").trim();
+  return cleaned.slice(0, config.MAX_NAME_LENGTH);
+}
+
+/** เริ่มต้นการทำงานของ Timers ต่างๆ ในเกม */
+function startGameTimers() {
+  // Clear any existing timers before starting new ones
+  Object.values(gameState.gameTimers).forEach(timer => clearInterval(timer));
+
+  gameState.gameTimers.flush = setInterval(flushScoreQueue, config.FLUSH_INTERVAL_MS);
+  gameState.gameTimers.community = setInterval(updateCommunityMeter, 3000);
+  gameState.gameTimers.leaderboard = setInterval(updateLeaderboard, 5000);
+
+  // Initial fetch
+  updateCommunityMeter();
   updateLeaderboard();
-});
+}
 
-// เติมชื่อเดิมถ้าเคยเล่น
-const saved = localStorage.getItem('debirun_name');
-if (saved) nameInput.value = saved;
 
-// --- Input (Pointer Events) ---
-let pressed = false;
+// ===================================================================
+// EVENT HANDLERS
+// ===================================================================
 
-function onPress(e) {
-  e.preventDefault();
-  if (pressed) return;
-  pressed = true;
+/** เมื่อผู้ใช้กดคลิก/แตะที่ตัวละคร */
+function handlePress(event) {
+  event.preventDefault();
+  if (gameState.isPressed) return;
+  gameState.isPressed = true;
 
-  // reset idle
-  stopIdleSound({ clearTimers: true });
-  scheduleIdle();
+  // รีเซ็ตเสียง Idle และเริ่มนับใหม่
+  stopIdleSound(true);
+  scheduleIdleSound();
 
   // อัปเดตคะแนน
-  score++;
-  clickQueue.pending++;
-  scoreDisplay.textContent = score;
+  gameState.score++;
+  gameState.clickQueue.pending++;
+  elements.scoreDisplay.textContent = gameState.score.toLocaleString();
 
-  // ภาพ & เอฟเฟกต์
-  debirunImage.src = IMG2;
-  debirunImage.classList.add('active');
+  // เปลี่ยนภาพและเพิ่มเอฟเฟกต์
+  elements.debirunImage.src = config.IMG_POPPED;
+  elements.debirunImage.classList.add('active');
 
-  // ===== เงื่อนไขสตรีค 30 ครั้งติดกัน =====
+  // ตรวจสอบเงื่อนไข Streak
   const now = performance.now();
-  if (now - lastClickAt > STREAK_RESET_MS) {
-    // เว้นช่วงนานไป → สตรีคขาดตอน
-    streakCount = 0;
+  if (now - gameState.lastClickAt > config.STREAK_RESET_MS) {
+    gameState.streakCount = 0; // Reset if the pause was too long
   }
-  streakCount += 1;
-  lastClickAt = now;
+  gameState.streakCount++;
+  gameState.lastClickAt = now;
 
-  // ครบ 30/60/90… ครั้งติดกัน → เล่นเสียงกำลังใจ
-  const useRapid = (streakCount % STREAK_TARGET === 0);
-  const s = useRapid ? rapidPopSound : popSound;
-
-  try { s.currentTime = 0; s.play(); } catch {}
-  // =======================================
+  // เล่นเสียงตามเงื่อนไข Streak
+  const shouldUseRapidSound = (gameState.streakCount % config.STREAK_TARGET === 0);
+  const soundToPlay = shouldUseRapidSound ? sounds.rapidPop : sounds.pop;
+  
+  soundToPlay.currentTime = 0;
+  soundToPlay.play().catch(()=>{});
 }
 
-function onRelease() {
-  if (!pressed) return;
-  pressed = false;
-  debirunImage.src = IMG1;
-  debirunImage.classList.remove('active');
+/** เมื่อผู้ใช้ปล่อยคลิก/แตะ */
+function handleRelease() {
+  if (!gameState.isPressed) return;
+  gameState.isPressed = false;
+
+  elements.debirunImage.src = config.IMG_NORMAL;
+  elements.debirunImage.classList.remove('active');
 }
 
-debirunImage.addEventListener('pointerdown', onPress, { passive: false });
-document.addEventListener('pointerup', onRelease);
-document.addEventListener('pointercancel', onRelease);
-
-// หยุด/เริ่ม idle เมื่อซ่อน/กลับมา
-document.addEventListener('visibilitychange', () => {
+/** เมื่อหน้าจอถูกซ่อนหรือกลับมาแสดง */
+function handleVisibilityChange() {
   if (document.hidden) {
-    stopIdleSound({ clearTimers: true });
+    stopIdleSound(true);
     // รีเซ็ตสตรีคเมื่อสลับแท็บ/ซ่อนหน้า
-    streakCount = 0;
-    lastClickAt = 0;
-  } else if (username) {
-    scheduleIdle();
+    gameState.streakCount = 0;
+    gameState.lastClickAt = 0;
+  } else if (gameState.username) {
+    scheduleIdleSound();
   }
-});
+}
 
-// กัน pinch-zoom/double-tap ในภาพ
-debirunImage.style.touchAction = 'manipulation';
-debirunImage.style.userSelect = 'none';
+/** เมื่อกดปุ่มเริ่มเกม */
+async function handleStartButtonClick() {
+  const cleanName = sanitizeName(elements.nameInput.value);
+
+  if (cleanName.length < config.MIN_NAME_LENGTH) {
+    alert(`กรุณากรอกชื่อเอเจนท์ ${config.MIN_NAME_LENGTH}–${config.MAX_NAME_LENGTH} ตัวอักษร`);
+    return;
+  }
+  
+  gameState.username = cleanName;
+  elements.playerNameDisplay.textContent = gameState.username;
+  localStorage.setItem(config.LOCAL_STORAGE_KEY, gameState.username);
+
+  // ปลดล็อกเสียงบนมือถือ (ต้องเกิดจาก User Interaction)
+  try {
+    await sounds.pop.play();
+    sounds.pop.pause();
+    sounds.pop.currentTime = 0;
+  } catch {}
+  
+  // แสดงหน้าโหลด หรือ Spinner (ถ้ามี)
+  await preloadImages(config.IMG_NORMAL, config.IMG_POPPED);
+
+  // สลับหน้าจอ
+  elements.loginContainer.style.display = 'none';
+  elements.gameContainer.style.display = 'flex';
+
+  // เริ่มต้น Logic ของเกม
+  scheduleIdleSound();
+  startGameTimers();
+}
+
+
+// ===================================================================
+// INITIALIZATION
+// ===================================================================
+
+/** ฟังก์ชันหลักในการเริ่มต้นทุกอย่าง */
+function main() {
+  // ดึงชื่อเดิมที่เคยเล่นจาก Local Storage
+  const savedName = localStorage.getItem(config.LOCAL_STORAGE_KEY);
+  if (savedName) {
+    elements.nameInput.value = savedName;
+  }
+
+  // ป้องกันการซูมด้วยนิ้วบนมือถือ
+  elements.debirunImage.style.touchAction = 'manipulation';
+  elements.debirunImage.style.userSelect = 'none';
+
+  // ตั้งค่า Event Listeners
+  elements.startButton.addEventListener('click', handleStartButtonClick);
+  elements.debirunImage.addEventListener('pointerdown', handlePress, { passive: false });
+  document.addEventListener('pointerup', handleRelease);
+  document.addEventListener('pointercancel', handleRelease);
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+}
+
+// เริ่มการทำงานของสคริปต์
+main();
